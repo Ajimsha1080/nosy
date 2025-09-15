@@ -1,5 +1,0 @@
-Flask==2.3.2
-flask-cors==4.0.0
-pydub==0.25.1
-spleeter==2.4.0
-gunicorn==21.2.0
