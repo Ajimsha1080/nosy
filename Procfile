@@ -1,2 +1,1 @@
-web: gunicorn backend.app:app --bind 0.0.0.0:$PORT --access-logfile - --error-logfile -
-
+web: gunicorn backend.app:app --timeout 120
