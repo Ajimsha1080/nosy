@@ -1,8 +1,27 @@
-flask==2.3.2
-flask-cors==3.1.13
+# Flask
+Flask==2.3.2
+flask-cors==3.0.10
+
+# Gunicorn for deployment
 gunicorn==20.1.0
+
+# Audio processing
 spleeter==2.3.2
-numpy  # will be resolved via constraints
-pandas  # will be resolved via constraints
-librosa  # resolved via constraints
-typer  # resolved via constraints
+numpy==1.18.5
+pandas==1.1.2
+librosa==0.8.0
+ffmpeg-python==0.2.0
+audioread==2.1.9
+pooch==1.6.0
+norbert==0.2.1
+
+# HTTP requests
+httpx[http2]==0.19.0
+
+# Utility packages
+blinker==1.8.1
+itsdangerous==2.1.2
+werkzeug==2.2.3
+markupsafe==2.1.1
+jinja2==3.1.2
+typer==0.3.2
