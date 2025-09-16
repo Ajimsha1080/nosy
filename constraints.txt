@@ -1,8 +1,7 @@
-# flask==1.1.4  # REMOVE conflicting Flask
 ffmpeg-python==0.2.0
 numpy>=1.19.2,<2.0.0
 typer>=0.3.2,<0.4.0
 click>=7.1.1,<7.2.0
 Jinja2>=2.11.3,<3.0
-Werkzeug>=1.0.1,<2.0.0
+Werkzeug>=2.2.2,<3.0.0
 flask-cors==3.0.10
