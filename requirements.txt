@@ -6,8 +6,9 @@ click>=7.1.1,<7.2.0
 typer>=0.3.2,<0.4.0
 spleeter==2.3.2
 numpy>=1.19.2,<2.0.0
-ffmpeg-python>=0.1.18
+ffmpeg-python==0.2.0
 audioread>=3.0.0
 norbert==0.2.1
 pooch>=1.0
 itsdangerous>=1.1.0,<2.0.0
+
