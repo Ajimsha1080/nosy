@@ -1,24 +1,13 @@
-# Flask & web
 Flask==2.2.5
 flask-cors==3.0.10
-
-# Audio separation
 spleeter==2.3.2
 ffmpeg-python==0.2.0
-
-# Supporting libraries for Spleeter
 numpy>=1.19.2,<2.0.0
 scipy>=1.5.4
 tensorflow==2.13.1
 norbert==0.2.1
-
-# CLI tools
 typer>=0.3.2,<0.4.0
 click>=7.1.1,<7.2.0
-
-# Dependencies for Flask & templates
 Jinja2>=2.11.3,<3.0
 Werkzeug>=1.0.1,<2.0.0
 MarkupSafe>=2.0
-
-
