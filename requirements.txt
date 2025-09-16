@@ -1,5 +1,7 @@
-Flask==2.2.2        # works with spleeter
+Flask==2.2.2
 flask-cors==4.0.0
 pydub==0.25.1
 spleeter==2.1.0
 gunicorn==21.2.0
+numpy==1.23.5
+
