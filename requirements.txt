@@ -9,8 +9,6 @@ librosa==0.8.0
 scipy==1.10.1
 norbert==0.2.1
 ffmpeg-python==0.2.0
-numpy==1.23.5
-pandas==1.5.3
-
-
-
+numpy==1.18.5
+pandas==1.1.5
+tensorflow==2.5.0
