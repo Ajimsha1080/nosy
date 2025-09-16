@@ -1,44 +1,24 @@
-# Python cache
+# Python
 __pycache__/
-*.py[cod]
-*$py.class
+*.pyc
+*.pyo
+*.pyd
+*.pkl
 
-# Virtual environment
-venv/
-env/
+# Virtual env
 .venv/
+env/
+venv/
 
-# Build / distribution
-build/
-dist/
+# Build
 *.egg-info/
+dist/
+build/
 
-# Logs
-*.log
-
-# OS files
+# OS
 .DS_Store
 Thumbs.db
 
-# Node (frontend)
-node_modules/
-npm-debug.log
-yarn-debug.log
-yarn-error.log
-.pnpm-debug.log
-
-# Frontend build
-frontend/build/
-frontend/dist/
-
-# Backend uploads
-backend/uploads/
-
-# Environment / secrets
-.env
-*.env
-
-# IDE / editor configs
-.vscode/
-.idea/
-*.swp
+# Uploads
+backend/uploads/*
+!backend/uploads/.gitkeep
