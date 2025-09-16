@@ -1,12 +1,11 @@
-flask==1.1.4
-flask-cors==3.0.10
+Flask==2.3.2
+flask-cors==4.0.0
 pydub==0.25.1
 spleeter==2.1.0
-tensorflow==2.3.0
-numpy==1.18.5
-click==7.1.2
-typer==0.3.2
-gunicorn==20.1.0
+gunicorn==21.2.0
+markupsafe==2.0.1
+Jinja2==3.0.3
+
 
 
 
