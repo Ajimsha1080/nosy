@@ -1,7 +1,7 @@
-Flask==2.2.2
-flask-cors==4.0.0
-pydub==0.25.1
+flask
+flask-cors
+pydub
 spleeter==2.1.0
-gunicorn==21.2.0
-numpy==1.23.5
+tensorflow==2.3.0
+numpy<1.19,>=1.16
 
