@@ -8,7 +8,7 @@ from flask_cors import CORS
 from pydub import AudioSegment
 
 app = Flask(__name__)
-CORS(app)
+CORS(app)  # Allow all origins
 
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -21,7 +21,6 @@ def separate_audio():
             return jsonify({'error': 'No audio file provided'}), 400
 
         audio_file = request.files['audio_file']
-
         if audio_file.filename == "":
             return jsonify({'error': 'Empty filename'}), 400
 
@@ -34,13 +33,13 @@ def separate_audio():
         output_dir = os.path.join(temp_dir, 'output')
         os.makedirs(output_dir, exist_ok=True)
 
-        # Run Spleeter
         command = [
             'spleeter', 'separate',
             '-p', 'spleeter:2stems',
             '-o', output_dir,
             temp_input_path
         ]
+
         process = subprocess.run(command, capture_output=True, text=True)
         if process.returncode != 0:
             return jsonify({'error': 'Spleeter processing failed', 'details': process.stderr}), 500
@@ -50,7 +49,7 @@ def separate_audio():
         accompaniment_path = os.path.join(output_subdir, 'accompaniment.wav')
 
         if not os.path.exists(vocals_path) or not os.path.exists(accompaniment_path):
-            return jsonify({'error': 'Spleeter output files not found.'}), 500
+            return jsonify({'error': 'Spleeter output files not found. Check input format.'}), 500
 
         vocals_audio = AudioSegment.from_wav(vocals_path)
         accompaniment_audio = AudioSegment.from_wav(accompaniment_path)
