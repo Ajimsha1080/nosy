@@ -1,4 +1,4 @@
-Flask==2.2.5
+Flask==1.1.4
 flask-cors==3.0.10
 spleeter==2.3.2
 typer>=0.3.2,<0.4.0
@@ -8,11 +8,10 @@ ffmpeg-python>=0.1.18
 audioread>=3.0.0
 norbert==0.2.1
 pooch>=1.0
-Jinja2>=3.1.2
-markupsafe>=2.1.1
-Werkzeug>=2.2.3,<3.0.0
-itsdangerous>=2.1.2
-blinker>=1.6.2
+Jinja2>=3.0.3
+markupsafe>=2.0.1
+Werkzeug>=1.0.1,<2.0.0
+itsdangerous>=1.1.0
 tensorflow==2.13.1
 httpx>=0.19.0,<0.20.0
 
