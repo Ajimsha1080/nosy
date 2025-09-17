@@ -1,5 +1,5 @@
-Flask==2.2.5
+spleeter==2.4.0  # or latest version compatible with click >=8
+flask==2.2.5
 Flask-Cors==3.0.10
-spleeter==2.3.2
 numpy==1.23.5
 ffmpeg-python==0.2.0
