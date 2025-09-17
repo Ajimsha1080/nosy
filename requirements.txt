@@ -1,7 +1,7 @@
-spleeter==2.3.2
-click==7.1.2   # or latest version compatible with click >=8
-flask==2.0.3
-Flask-Cors==3.0.10
+flask==2.2.5
+flask-cors==3.0.10
+spleeter==2.4.0
+tensorflow==2.13.1
 numpy==1.23.5
 ffmpeg-python==0.2.0
-
+pooch==1.8.2
