@@ -1,77 +1,66 @@
+from flask import Flask, request, jsonify, send_file
+from spleeter.separator import Separator
 import os
-import io
-import base64
-import subprocess
-import shutil
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-from pydub import AudioSegment
+import tempfile
 
 app = Flask(__name__)
-CORS(app)  # Allow all origins
 
-UPLOAD_FOLDER = "uploads"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+# Initialize Spleeter Separator for 2 stems (vocals and accompaniment)
+separator = Separator('spleeter:2stems')
+
+
+@app.route('/')
+def home():
+    return "Welcome to the Audio Separation API!"
 
 
 @app.route('/separate', methods=['POST'])
 def separate_audio():
-    try:
-        if 'audio_file' not in request.files:
-            return jsonify({'error': 'No audio file provided'}), 400
+    """
+    Accepts an uploaded audio file and separates it into stems.
+    """
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
 
-        audio_file = request.files['audio_file']
-        if audio_file.filename == "":
-            return jsonify({'error': 'Empty filename'}), 400
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
 
-        safe_filename = audio_file.filename.replace(" ", "_").replace("(", "").replace(")", "")
-        temp_dir = f"temp_spleeter_{os.getpid()}"
-        os.makedirs(temp_dir, exist_ok=True)
-        temp_input_path = os.path.join(temp_dir, safe_filename)
-        audio_file.save(temp_input_path)
+    # Save uploaded file to a temporary location
+    temp_dir = tempfile.mkdtemp()
+    input_path = os.path.join(temp_dir, file.filename)
+    file.save(input_path)
 
-        output_dir = os.path.join(temp_dir, 'output')
-        os.makedirs(output_dir, exist_ok=True)
+    # Output directory
+    output_dir = os.path.join(temp_dir, "output")
+    os.makedirs(output_dir, exist_ok=True)
 
-        command = [
-            'spleeter', 'separate',
-            '-p', 'spleeter:2stems',
-            '-o', output_dir,
-            temp_input_path
-        ]
+    # Perform separation
+    separator.separate_to_file(input_path, output_dir)
 
-        process = subprocess.run(command, capture_output=True, text=True)
-        if process.returncode != 0:
-            return jsonify({'error': 'Spleeter processing failed', 'details': process.stderr}), 500
+    # Locate separated files (vocals and accompaniment)
+    separated_files = {}
+    for root, dirs, files in os.walk(output_dir):
+        for f in files:
+            separated_files[f] = os.path.join(root, f)
 
-        output_subdir = os.path.join(output_dir, os.path.splitext(safe_filename)[0])
-        vocals_path = os.path.join(output_subdir, 'vocals.wav')
-        accompaniment_path = os.path.join(output_subdir, 'accompaniment.wav')
+    return jsonify({
+        'message': 'Separation complete',
+        'files': list(separated_files.keys())
+    })
 
-        if not os.path.exists(vocals_path) or not os.path.exists(accompaniment_path):
-            return jsonify({'error': 'Spleeter output files not found. Check input format.'}), 500
 
-        vocals_audio = AudioSegment.from_wav(vocals_path)
-        accompaniment_audio = AudioSegment.from_wav(accompaniment_path)
-
-        vocals_stream = io.BytesIO()
-        accompaniment_stream = io.BytesIO()
-        vocals_audio.export(vocals_stream, format="wav")
-        accompaniment_audio.export(accompaniment_stream, format="wav")
-
-        vocals_base64 = base64.b64encode(vocals_stream.getvalue()).decode('utf-8')
-        accompaniment_base64 = base64.b64encode(accompaniment_stream.getvalue()).decode('utf-8')
-
-        shutil.rmtree(temp_dir)
-
-        return jsonify({
-            'vocals': vocals_base64,
-            'accompaniment': accompaniment_base64
-        })
-
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+@app.route('/download/<filename>', methods=['GET'])
+def download_file(filename):
+    """
+    Allows downloading of separated files.
+    """
+    for root, dirs, files in os.walk(tempfile.gettempdir()):
+        if filename in files:
+            return send_file(os.path.join(root, filename), as_attachment=True)
+    return jsonify({'error': 'File not found'}), 404
 
 
 if __name__ == '__main__':
+    # Run the Flask app
     app.run(host='0.0.0.0', port=5000, debug=True)
