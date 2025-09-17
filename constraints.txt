@@ -1,7 +1,8 @@
-click>=8.0,<9.0        # Compatible with Flask 2.2.5
+click>=8.0,<9.0
 Werkzeug==2.2.3
 Jinja2==3.1.2
 itsdangerous==2.1.2
 typing-extensions==4.5.0
-llvmlite==0.38.1        # Compatible with spleeter 2.3.2
-numba==0.55.2           # Compatible with llvmlite 0.38.1
+llvmlite==0.38.1
+numba==0.55.2
+# REMOVE any numpy entry here
