@@ -6,6 +6,7 @@ itsdangerous==2.1.2
 click==8.0.4
 tensorflow==2.13.1
 spleeter==2.3.2
+typer==0.3.2
 ffmpeg-python==0.2.0
 numpy==1.23.5
 pooch==1.8.2
