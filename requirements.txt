@@ -1,16 +1,12 @@
-# --- Core Web Framework ---
-flask==2.2.5
-flask-cors==3.0.10
+# Flask and CORS
+Flask==2.2.5
+Flask-Cors==3.0.10
 
-
-
-# --- Flask Dependencies ---
-werkzeug==2.2.3
-jinja2==3.1.2
-itsdangerous==2.1.2
-
-# --- Audio / ML ---
+# Spleeter (includes Typer dependency automatically)
 spleeter==2.3.2
 
-# --- Other common deps (optional) ---
-numpy==1.24.3
+# Other dependencies
+ffmpeg-python==0.2.0
+numpy==1.23.5
+pooch==1.8.2
+tensorflow==2.13.1
