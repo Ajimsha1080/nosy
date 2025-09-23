@@ -1,7 +1,7 @@
 flask==2.2.5
 flask-cors==3.0.10
 spleeter==2.4.0
-tensorflow==2.13.1
+tensorflow==2.9.3
 numpy==1.23.5
 ffmpeg-python==0.2.0
 pooch==1.8.2
