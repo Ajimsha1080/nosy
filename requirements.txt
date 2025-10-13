@@ -7,7 +7,7 @@ soundfile
 numpy
 scipy
 gunicorn
-protobuf
+
 
 
 # Spleeter (audio separation)
