@@ -3,5 +3,5 @@ services:
     name: nosy-backend
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn ai_cleaner backend.app:app 
+    startCommand: gunicorn backend.app:app 
     workingDirectory: ./backend
