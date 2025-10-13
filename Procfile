@@ -1,1 +1,1 @@
-web: PYTHONPATH=. gunicorn backend.app:app 
+web: PYTHONPATH=. gunicorn ai_cleaner backend.app:app 
