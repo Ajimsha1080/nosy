@@ -6,6 +6,8 @@ pydub
 soundfile
 numpy
 scipy
+gunicorn
+
 
 # Spleeter (audio separation)
 spleeter
