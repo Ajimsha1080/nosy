@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, render_template
 from spleeter.separator import Separator
 import os
 import tempfile
@@ -8,10 +8,9 @@ app = Flask(__name__)
 # Initialize Spleeter Separator for 2 stems (vocals and accompaniment)
 separator = Separator('spleeter:2stems')
 
-
-@app.route('/')
+@app.route("/")
 def home():
-    return "Welcome to the Audio Separation API!"
+    return render_template("index.html")
 
 
 @app.route('/separate', methods=['POST'])
