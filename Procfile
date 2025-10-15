@@ -1,2 +1,2 @@
-web: gunicorn backend.app:app
+web: gunicorn cleaner.backend.app:app
 
