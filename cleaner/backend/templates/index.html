@@ -1,1 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Separation API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 50px;
+        }
+        input[type=file] {
+            margin: 20px 0;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            margin: 10px 0;
+        }
+        a {
+            text-decoration: none;
+            color: blue;
+        }
+    </style>
+</head>
+<body>
+    <h1>Welcome to the Audio Separation API!</h1>
+    <p>Upload an audio file and get separated vocals & accompaniment.</p>
 
+    <form id="uploadForm">
+        <input type="file" id="audioFile" name="file" required>
+        <br>
+        <button type="submit">Separate Audio</button>
+    </form>
+
+    <h2>Separated Files:</h2>
+    <ul id="filesList"></ul>
+
+    <script>
+        const form = document.getElementById('uploadForm');
+        const filesList = document.getElementById('filesList');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            filesList.innerHTML = '<li>Processing...</li>';
+
+            const fileInput = document.getElementById('audioFile');
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                const response = await fetch('/separate', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (data.error) {
+                    filesList.innerHTML = `<li style="color:red">${data.error}</li>`;
+                    return;
+                }
+
+                filesList.innerHTML = '';
+                data.files.forEach(file => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<a href="/download/${file}" target="_blank">${file}</a>`;
+                    filesList.appendChild(li);
+                });
+            } catch (err) {
+                filesList.innerHTML = `<li style="color:red">Error: ${err.message}</li>`;
+            }
+        });
+    </script>
+</body>
+</html>
