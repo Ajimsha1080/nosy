@@ -2,11 +2,11 @@ from flask import Flask, request, jsonify, send_file, render_template
 from spleeter.separator import Separator
 import os
 import tempfile
+import zipfile
 
-# Initialize Flask with explicit template and static folders
 app = Flask(__name__, template_folder="templates", static_folder="static")
 
-# Initialize Spleeter Separator for 2 stems (vocals and accompaniment)
+# Initialize Spleeter Separator for 2 stems
 separator = Separator('spleeter:2stems')
 
 @app.route("/")
@@ -22,6 +22,7 @@ def separate_audio():
     if file.filename == '':
         return jsonify({'error': 'No selected file'}), 400
 
+    # Create temp directories
     temp_dir = tempfile.mkdtemp()
     input_path = os.path.join(temp_dir, file.filename)
     file.save(input_path)
@@ -32,23 +33,15 @@ def separate_audio():
     # Separate audio
     separator.separate_to_file(input_path, output_dir)
 
-    # Find separated files
-    separated_files = {}
-    for root, dirs, files in os.walk(output_dir):
-        for f in files:
-            separated_files[f] = os.path.join(root, f)
+    # Zip the separated files
+    zip_path = os.path.join(temp_dir, "separated_audio.zip")
+    with zipfile.ZipFile(zip_path, 'w') as zipf:
+        for root, _, files in os.walk(output_dir):
+            for f in files:
+                zipf.write(os.path.join(root, f), arcname=f)
 
-    return jsonify({
-        'message': 'Separation complete',
-        'files': list(separated_files.keys())
-    })
-
-@app.route('/download/<filename>', methods=['GET'])
-def download_file(filename):
-    for root, dirs, files in os.walk(tempfile.gettempdir()):
-        if filename in files:
-            return send_file(os.path.join(root, filename), as_attachment=True)
-    return jsonify({'error': 'File not found'}), 404
+    # Send the zip file
+    return send_file(zip_path, as_attachment=True, download_name="separated_audio.zip")
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
