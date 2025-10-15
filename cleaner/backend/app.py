@@ -3,15 +3,15 @@ from spleeter.separator import Separator
 import os
 import tempfile
 
-# Tell Flask to look for templates inside the current folder (backend)
-app = Flask(__name__, template_folder='.')
+# Initialize Flask with explicit template and static folders
+app = Flask(__name__, template_folder="templates", static_folder="static")
 
 # Initialize Spleeter Separator for 2 stems (vocals and accompaniment)
 separator = Separator('spleeter:2stems')
 
 @app.route("/")
 def home():
-    return render_template("index.html")  # Flask will now look for backend/index.html
+    return render_template("index.html")
 
 @app.route('/separate', methods=['POST'])
 def separate_audio():
@@ -29,8 +29,10 @@ def separate_audio():
     output_dir = os.path.join(temp_dir, "output")
     os.makedirs(output_dir, exist_ok=True)
 
+    # Separate audio
     separator.separate_to_file(input_path, output_dir)
 
+    # Find separated files
     separated_files = {}
     for root, dirs, files in os.walk(output_dir):
         for f in files:
@@ -47,7 +49,6 @@ def download_file(filename):
         if filename in files:
             return send_file(os.path.join(root, filename), as_attachment=True)
     return jsonify({'error': 'File not found'}), 404
-
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
