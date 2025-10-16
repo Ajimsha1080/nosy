@@ -1,36 +1,32 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Audio Separation API</title>
-  <style>
-    body { font-family: Arial, sans-serif; padding: 30px; }
-    .audio-container { margin-top: 20px; }
-  </style>
+<meta charset="UTF-8">
+<title>Audio Separation API</title>
 </head>
 <body>
-  <h1>Audio Separation API</h1>
+<h1>Audio Separation API</h1>
 
-  <input type="file" id="audioFile" accept=".mp3,.wav">
-  <button onclick="uploadFile()">Upload & Separate</button>
+<input type="file" id="audioFile" accept=".mp3,.wav">
+<button onclick="uploadFile()">Upload & Separate</button>
 
-  <p id="status"></p>
+<p id="status"></p>
 
-  <div class="audio-container" id="audios" style="display:none;">
+<div id="audios" style="display:none;">
     <h2>Vocals</h2>
     <audio id="vocals" controls></audio>
-    
+
     <h2>Accompaniment</h2>
     <audio id="accompaniment" controls></audio>
-  </div>
+</div>
 
 <script>
 async function uploadFile() {
-    const fileInput = document.getElementById('audioFile');
-    const status = document.getElementById('status');
-    const audiosDiv = document.getElementById('audios');
-    const vocalsAudio = document.getElementById('vocals');
-    const accompanimentAudio = document.getElementById('accompaniment');
+    const fileInput = document.getElementById("audioFile");
+    const status = document.getElementById("status");
+    const audiosDiv = document.getElementById("audios");
+    const vocalsAudio = document.getElementById("vocals");
+    const accompanimentAudio = document.getElementById("accompaniment");
 
     if (!fileInput.files.length) {
         status.textContent = "Please select a file!";
@@ -40,14 +36,10 @@ async function uploadFile() {
     const formData = new FormData();
     formData.append("file", fileInput.files[0]);
 
-    status.textContent = "Processing... Please wait ⏳";
+    status.textContent = "Processing... ⏳";
 
     try {
-        const res = await fetch("/separate", {
-            method: "POST",
-            body: formData
-        });
-
+        const res = await fetch("/separate", { method: "POST", body: formData });
         const data = await res.json();
 
         if (res.ok) {
@@ -55,18 +47,29 @@ async function uploadFile() {
             vocalsAudio.src = data.vocals_url;
             accompanimentAudio.src = data.accompaniment_url;
             audiosDiv.style.display = "block";
+
+            // Auto-download
+            downloadFile(data.vocals_url, "vocals.wav");
+            downloadFile(data.accompaniment_url, "accompaniment.wav");
         } else {
             status.textContent = data.error || "Server error. Try again.";
             audiosDiv.style.display = "none";
         }
-
     } catch (err) {
         status.textContent = "Network error. Try again.";
         audiosDiv.style.display = "none";
         console.error(err);
     }
 }
-</script>
 
+function downloadFile(url, filename) {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+</script>
 </body>
 </html>
