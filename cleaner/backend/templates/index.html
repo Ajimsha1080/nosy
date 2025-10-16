@@ -5,15 +5,40 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Audio Separation API</title>
 <style>
-body { font-family: Arial, sans-serif; margin: 40px; }
-button { padding: 10px 20px; font-size: 16px; }
-audio { display: block; margin-top: 10px; }
+body { 
+  font-family: Arial, sans-serif; 
+  margin: 40px; 
+  background: #f4f4f9; 
+  color: #333;
+}
+button { 
+  padding: 10px 20px; 
+  font-size: 16px; 
+  margin-top: 10px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+button:hover {
+  background: #0056b3;
+}
+audio { 
+  display: block; 
+  margin-top: 10px; 
+  width: 100%;
+}
+#status {
+  margin-top: 20px;
+  font-weight: bold;
+}
 </style>
 </head>
 <body>
-<h1>Audio Separation API</h1>
+<h1>🎵 Audio Separation API</h1>
 
-<input type="file" id="fileInput">
+<input type="file" id="fileInput" accept="audio/*">
 <button onclick="uploadFile()">Upload & Separate</button>
 
 <div id="status"></div>
@@ -21,39 +46,45 @@ audio { display: block; margin-top: 10px; }
 
 <script>
 async function uploadFile() {
-    const fileInput = document.getElementById("fileInput");
-    if (!fileInput.files.length) {
-        alert("Select a file first!");
-        return;
-    }
+  const fileInput = document.getElementById("fileInput");
+  if (!fileInput.files.length) {
+    alert("Please select an audio file first!");
+    return;
+  }
 
-    const file = fileInput.files[0];
-    const formData = new FormData();
-    formData.append("file", file);
+  const file = fileInput.files[0];
+  const formData = new FormData();
+  formData.append("file", file);
 
-    document.getElementById("status").innerText = "Processing...";
+  document.getElementById("status").innerText = "⏳ Uploading and processing... Please wait.";
 
-    try {
-        const res = await fetch("/separate", { method: "POST", body: formData });
-        if (!res.ok) throw new Error("Server error");
+  try {
+    // ✅ Use your Render backend URL here
+    const response = await fetch("https://nosy-nky9.onrender.com/separate", {
+      method: "POST",
+      body: formData
+    });
 
-        const data = await res.json();
-        document.getElementById("status").innerText = data.message;
+    if (!response.ok) throw new Error("Server error");
 
-        const resultDiv = document.getElementById("result");
-        resultDiv.innerHTML = `
-            <h3>Vocals</h3>
-            <audio controls src="/download/${data.vocals}"></audio>
-            <a href="/download/${data.vocals}" download>Download Vocals</a>
+    const data = await response.json();
 
-            <h3>Accompaniment</h3>
-            <audio controls src="/download/${data.accompaniment}"></audio>
-            <a href="/download/${data.accompaniment}" download>Download Accompaniment</a>
-        `;
-    } catch(err) {
-        console.error(err);
-        document.getElementById("status").innerText = "Error processing file.";
-    }
+    document.getElementById("status").innerText = data.message || "✅ Separation complete!";
+
+    const resultDiv = document.getElementById("result");
+    resultDiv.innerHTML = `
+      <h3>🎤 Vocals</h3>
+      <audio controls src="https://nosy-nky9.onrender.com/${data.vocals_path}"></audio>
+      <a href="https://nosy-nky9.onrender.com/${data.vocals_path}" download>⬇️ Download Vocals</a>
+
+      <h3>🎶 Accompaniment</h3>
+      <audio controls src="https://nosy-nky9.onrender.com/${data.accompaniment_path}"></audio>
+      <a href="https://nosy-nky9.onrender.com/${data.accompaniment_path}" download>⬇️ Download Accompaniment</a>
+    `;
+  } catch (err) {
+    console.error(err);
+    document.getElementById("status").innerText = "❌ Error: Could not process file.";
+  }
 }
 </script>
 
