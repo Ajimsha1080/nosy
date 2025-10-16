@@ -1,43 +1,68 @@
 import os
 import uuid
-from flask import Flask, request, jsonify, send_file, render_template
+from flask import Flask, request, jsonify, send_file
+from spleeter.separator import Separator
 from werkzeug.utils import secure_filename
-from some_audio_separation_module import separate_audio  # Replace with your separation logic
 
 app = Flask(__name__)
-UPLOAD_FOLDER = "temp"
+
+# Folder to store uploaded and separated audio
+UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-@app.route("/")
+# Initialize Spleeter 2-stems separator (vocals + accompaniment)
+separator = Separator('spleeter:2stems')
+
+@app.route("/", methods=["GET"])
 def home():
-    return render_template("index.html")
+    return "Audio Separation API is live!"
 
 @app.route("/separate", methods=["POST"])
 def separate():
-    if "audio" not in request.files:
-        return jsonify({"error": "No audio file uploaded"}), 400
+    if "file" not in request.files:
+        return jsonify({"error": "No file part"}), 400
 
-    file = request.files["audio"]
+    file = request.files["file"]
+    if file.filename == "":
+        return jsonify({"error": "No selected file"}), 400
+
     filename = secure_filename(file.filename)
     uid = str(uuid.uuid4())
     input_path = os.path.join(UPLOAD_FOLDER, f"{uid}_{filename}")
     file.save(input_path)
 
-    # Separate audio
-    vocals_path, accompaniment_path = separate_audio(input_path, uid, UPLOAD_FOLDER)
+    # Folder for output
+    output_folder = os.path.join(UPLOAD_FOLDER, f"{uid}_output")
+    os.makedirs(output_folder, exist_ok=True)
 
+    # Perform separation
+    separator.separate_to_file(input_path, output_folder)
+
+    # Paths to separated files
+    vocals_path = os.path.join(output_folder, filename.replace(".mp3", ""), "vocals.wav")
+    accompaniment_path = os.path.join(output_folder, filename.replace(".mp3", ""), "accompaniment.wav")
+
+    if not os.path.exists(vocals_path) or not os.path.exists(accompaniment_path):
+        return jsonify({"error": "Separation failed"}), 500
+
+    # Return paths so frontend can directly fetch them
     return jsonify({
         "message": "Separation complete ✅",
-        "vocals": f"/download/{os.path.basename(vocals_path)}",
-        "accompaniment": f"/download/{os.path.basename(accompaniment_path)}"
+        "vocals_path": vocals_path,
+        "accompaniment_path": accompaniment_path
     })
 
-@app.route("/download/<filename>")
+
+@app.route("/download/<path:filename>", methods=["GET"])
 def download_file(filename):
+    # Serve file directly
     file_path = os.path.join(UPLOAD_FOLDER, filename)
-    if not os.path.exists(file_path):
-        return "File not found", 404
-    return send_file(file_path, mimetype="audio/wav")
+    if os.path.exists(file_path):
+        return send_file(file_path, as_attachment=True)
+    else:
+        return jsonify({"error": "File not found"}), 404
+
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
