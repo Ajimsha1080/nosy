@@ -2,59 +2,73 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Audio Separation API</title>
   <style>
-    body { font-family: Arial; padding: 40px; text-align: center; }
-    button { padding: 10px 20px; font-size: 16px; }
-    #status { margin-top: 20px; font-weight: bold; }
+    body { font-family: Arial, sans-serif; margin: 40px; text-align: center; }
+    input[type="file"] { margin: 20px 0; }
+    button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
+    .result { margin-top: 30px; }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
-  <h1>🎵 Welcome to the Audio Separation API!</h1>
+  <h1>Audio Separation API 🎵</h1>
   <p>Upload an audio file to separate vocals and accompaniment.</p>
+  
+  <input type="file" id="audioFile" accept="audio/*" />
+  <br>
+  <button id="uploadBtn">Upload & Separate</button>
 
-  <form id="uploadForm">
-    <input type="file" id="audioFile" accept="audio/*" required />
-    <button type="submit">Upload & Separate</button>
-  </form>
-
-  <div id="status"></div>
+  <div class="result hidden" id="result">
+    <p id="message"></p>
+    <a id="vocalsLink" href="#" download class="hidden">🎤 Download Vocals</a>
+    <br>
+    <a id="accompanimentLink" href="#" download class="hidden">🎹 Download Accompaniment</a>
+  </div>
 
   <script>
-    document.getElementById("uploadForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
+    const uploadBtn = document.getElementById('uploadBtn');
+    const audioFile = document.getElementById('audioFile');
+    const resultDiv = document.getElementById('result');
+    const messageP = document.getElementById('message');
+    const vocalsLink = document.getElementById('vocalsLink');
+    const accompanimentLink = document.getElementById('accompanimentLink');
 
-      const fileInput = document.getElementById("audioFile");
-      const status = document.getElementById("status");
-
-      if (!fileInput.files.length) {
-        status.textContent = "⚠️ Please choose a file first.";
+    uploadBtn.addEventListener('click', async () => {
+      if (!audioFile.files.length) {
+        alert('Please select an audio file first!');
         return;
       }
 
-      status.textContent = "⏳ Uploading and processing...";
-
+      const file = audioFile.files[0];
       const formData = new FormData();
-      formData.append("file", fileInput.files[0]);
+      formData.append('audio', file);
+
+      messageP.textContent = 'Processing... ⏳';
+      resultDiv.classList.remove('hidden');
+      vocalsLink.classList.add('hidden');
+      accompanimentLink.classList.add('hidden');
 
       try {
-        const response = await fetch("/separate", { method: "POST", body: formData });
-        const text = await response.text(); // Read raw response first
+        const response = await fetch('/separate', {
+          method: 'POST',
+          body: formData
+        });
 
-        let data;
-        try {
-            data = JSON.parse(text);
-        } catch {
-            throw new Error("Server returned invalid JSON. Check logs on Render.");
-        }
+        if (!response.ok) throw new Error('Server error');
 
-        if (!response.ok) throw new Error(data.error || "Unknown server error");
+        const data = await response.json();
 
-        status.textContent = "✅ " + data.message + "\nFiles: " + data.files.join(", ");
+        messageP.textContent = data.message || 'Separation complete ✅';
+        vocalsLink.href = data.vocals;
+        accompanimentLink.href = data.accompaniment;
 
+        vocalsLink.classList.remove('hidden');
+        accompanimentLink.classList.remove('hidden');
       } catch (err) {
         console.error(err);
-        status.textContent = "❌ " + err.message;
+        messageP.textContent = '❌ Error: ' + err.message;
       }
     });
   </script>
