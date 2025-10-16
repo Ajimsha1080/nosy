@@ -4,70 +4,56 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Audio Separation API</title>
-    <style>
-        body { font-family: Arial, sans-serif; padding: 20px; }
-        .container { max-width: 600px; margin: auto; }
-        input[type=file] { margin-bottom: 10px; }
-        button { margin-top: 10px; padding: 10px 15px; }
-        audio { display: block; margin: 10px 0; width: 100%; }
-    </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Audio Separation API</h1>
-        <input type="file" id="audioFile" accept="audio/*">
-        <button onclick="uploadFile()">Upload & Separate</button>
+    <h1>Audio Separation API</h1>
+    <form id="upload-form">
+        <input type="file" name="file" accept="audio/*" required>
+        <button type="submit">Upload & Separate</button>
+    </form>
 
-        <p id="status"></p>
-
-        <div id="result" style="display: none;">
-            <h3>Vocals</h3>
-            <audio id="vocalsAudio" controls></audio>
-            <a id="vocalsDownload" download>Download Vocals</a>
-
-            <h3>Accompaniment</h3>
-            <audio id="accompanimentAudio" controls></audio>
-            <a id="accompanimentDownload" download>Download Accompaniment</a>
-        </div>
-    </div>
+    <div id="result" style="margin-top: 20px;"></div>
 
     <script>
-        async function uploadFile() {
-            const fileInput = document.getElementById("audioFile");
-            if (!fileInput.files.length) {
-                alert("Please select a file.");
-                return;
-            }
+        const form = document.getElementById("upload-form");
+        const resultDiv = document.getElementById("result");
 
+        form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const fileInput = form.querySelector('input[name="file"]');
             const file = fileInput.files[0];
+            if (!file) return alert("Please select a file");
+
             const formData = new FormData();
             formData.append("file", file);
 
-            document.getElementById("status").innerText = "Separating audio... 🎵";
-            document.getElementById("result").style.display = "none";
+            resultDiv.innerHTML = "Processing... ⏳";
 
             try {
-                const response = await fetch("/separate", {
+                const res = await fetch("/separate", {
                     method: "POST",
                     body: formData
                 });
+                const data = await res.json();
 
-                const data = await response.json();
-
-                if (response.ok) {
-                    document.getElementById("status").innerText = data.message;
-                    document.getElementById("vocalsAudio").src = "/" + data.vocals;
-                    document.getElementById("vocalsDownload").href = "/" + data.vocals;
-                    document.getElementById("accompanimentAudio").src = "/" + data.accompaniment;
-                    document.getElementById("accompanimentDownload").href = "/" + data.accompaniment;
-                    document.getElementById("result").style.display = "block";
+                if (data.error) {
+                    resultDiv.innerHTML = "Error: " + data.error;
                 } else {
-                    document.getElementById("status").innerText = data.error;
+                    resultDiv.innerHTML = `
+                        <p>${data.message}</p>
+                        <h3>Vocals</h3>
+                        <audio controls src="${data.vocals_url}"></audio>
+                        <a href="${data.vocals_url}" download>Download Vocals</a>
+                        <h3>Accompaniment</h3>
+                        <audio controls src="${data.accompaniment_url}"></audio>
+                        <a href="${data.accompaniment_url}" download>Download Accompaniment</a>
+                    `;
                 }
             } catch (err) {
-                document.getElementById("status").innerText = "Error: " + err.message;
+                resultDiv.innerHTML = "Server error. Try again.";
+                console.error(err);
             }
-        }
+        });
     </script>
 </body>
 </html>
