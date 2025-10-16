@@ -3,6 +3,7 @@ import uuid
 from flask import Flask, request, jsonify, send_file
 from spleeter.separator import Separator
 from werkzeug.utils import secure_filename
+import shutil
 
 app = Flask(__name__)
 
@@ -31,31 +32,38 @@ def separate():
     input_path = os.path.join(UPLOAD_FOLDER, f"{uid}_{filename}")
     file.save(input_path)
 
-    # Folder for output
+    # Folder for Spleeter output
     output_folder = os.path.join(UPLOAD_FOLDER, f"{uid}_output")
     os.makedirs(output_folder, exist_ok=True)
 
     # Perform separation
     separator.separate_to_file(input_path, output_folder)
 
-    # Paths to separated files
-    vocals_path = os.path.join(output_folder, filename.replace(".mp3", ""), "vocals.wav")
-    accompaniment_path = os.path.join(output_folder, filename.replace(".mp3", ""), "accompaniment.wav")
+    # Original Spleeter output folder
+    base_name = filename.rsplit(".", 1)[0]
+    spleeter_output_path = os.path.join(output_folder, base_name)
+
+    vocals_path = os.path.join(spleeter_output_path, "vocals.wav")
+    accompaniment_path = os.path.join(spleeter_output_path, "accompaniment.wav")
 
     if not os.path.exists(vocals_path) or not os.path.exists(accompaniment_path):
         return jsonify({"error": "Separation failed"}), 500
 
-    # Return paths so frontend can directly fetch them
+    # Move files to uploads folder with simplified names
+    vocals_filename = f"{uid}_vocals.wav"
+    accompaniment_filename = f"{uid}_accompaniment.wav"
+    shutil.move(vocals_path, os.path.join(UPLOAD_FOLDER, vocals_filename))
+    shutil.move(accompaniment_path, os.path.join(UPLOAD_FOLDER, accompaniment_filename))
+
     return jsonify({
         "message": "Separation complete ✅",
-        "vocals_path": vocals_path,
-        "accompaniment_path": accompaniment_path
+        "vocals_url": f"/download/{vocals_filename}",
+        "accompaniment_url": f"/download/{accompaniment_filename}"
     })
 
 
 @app.route("/download/<path:filename>", methods=["GET"])
 def download_file(filename):
-    # Serve file directly
     file_path = os.path.join(UPLOAD_FOLDER, filename)
     if os.path.exists(file_path):
         return send_file(file_path, as_attachment=True)
