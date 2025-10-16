@@ -6,10 +6,12 @@ from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 
-UPLOAD_FOLDER = "backend/uploads"
+# Folders
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Initialize Spleeter 2-stems separator
+# Initialize Spleeter 2-stems separator (vocals + accompaniment)
 separator = Separator('spleeter:2stems')
 
 @app.route("/", methods=["GET"])
@@ -33,29 +35,33 @@ def separate():
     output_folder = os.path.join(UPLOAD_FOLDER, f"{uid}_output")
     os.makedirs(output_folder, exist_ok=True)
 
-    separator.separate_to_file(input_path, output_folder)
+    try:
+        separator.separate_to_file(input_path, output_folder)
+    except Exception as e:
+        return jsonify({"error": f"Separation failed: {str(e)}"}), 500
 
-    # Spleeter output paths
-    file_basename = os.path.splitext(filename)[0]
-    vocals_path = os.path.join(output_folder, file_basename, "vocals.wav")
-    accompaniment_path = os.path.join(output_folder, file_basename, "accompaniment.wav")
+    # Build paths for frontend
+    separated_folder = os.path.join(output_folder, filename.replace(".mp3",""))
+    vocals_path = os.path.join(separated_folder, "vocals.wav")
+    accompaniment_path = os.path.join(separated_folder, "accompaniment.wav")
 
     if not os.path.exists(vocals_path) or not os.path.exists(accompaniment_path):
         return jsonify({"error": "Separation failed"}), 500
 
-    # Return URLs for frontend
     return jsonify({
         "message": "Separation complete ✅",
-        "vocals_url": f"/download/{uid}_output/{file_basename}/vocals.wav",
-        "accompaniment_url": f"/download/{uid}_output/{file_basename}/accompaniment.wav"
+        "vocals_url": f"/download/{uid}_output/{filename.replace('.mp3','')}/vocals.wav",
+        "accompaniment_url": f"/download/{uid}_output/{filename.replace('.mp3','')}/accompaniment.wav"
     })
+
 
 @app.route("/download/<path:filename>", methods=["GET"])
 def download_file(filename):
     file_path = os.path.join(UPLOAD_FOLDER, filename)
     if os.path.exists(file_path):
-        return send_file(file_path, as_attachment=True)
+        return send_file(file_path)
     return jsonify({"error": "File not found"}), 404
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
