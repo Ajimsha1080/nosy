@@ -1,47 +1,47 @@
-from flask import Flask, request, jsonify, send_file, render_template
-from spleeter.separator import Separator
 import os
-import tempfile
-import zipfile
+from flask import Flask, request, jsonify
+from spleeter.separator import Separator
+from werkzeug.utils import secure_filename
 
-app = Flask(__name__, template_folder="templates", static_folder="static")
+app = Flask(__name__)
 
-# Initialize Spleeter Separator for 2 stems
+# Force CPU mode (Render has no GPU)
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
 separator = Separator('spleeter:2stems')
 
-@app.route("/")
+@app.route('/')
 def home():
-    return render_template("index.html")
+    return '''
+    <h2>Welcome to the Audio Separation API!</h2>
+    <p>Upload an audio file to separate vocals and accompaniment.</p>
+    <form action="/separate" method="post" enctype="multipart/form-data">
+        <input type="file" name="audio_file" required>
+        <button type="submit">Upload & Separate</button>
+    </form>
+    '''
 
 @app.route('/separate', methods=['POST'])
 def separate_audio():
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file part'}), 400
+    if 'audio_file' not in request.files:
+        return jsonify({'error': 'No file uploaded'}), 400
 
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
+    audio_file = request.files['audio_file']
+    filename = secure_filename(audio_file.filename)
+    input_path = os.path.join('/tmp', filename)
+    output_dir = os.path.join('/tmp', 'output')
 
-    # Create temp directories
-    temp_dir = tempfile.mkdtemp()
-    input_path = os.path.join(temp_dir, file.filename)
-    file.save(input_path)
-
-    output_dir = os.path.join(temp_dir, "output")
+    # Ensure directories exist
     os.makedirs(output_dir, exist_ok=True)
 
-    # Separate audio
-    separator.separate_to_file(input_path, output_dir)
+    # Save file temporarily
+    audio_file.save(input_path)
 
-    # Zip the separated files
-    zip_path = os.path.join(temp_dir, "separated_audio.zip")
-    with zipfile.ZipFile(zip_path, 'w') as zipf:
-        for root, _, files in os.walk(output_dir):
-            for f in files:
-                zipf.write(os.path.join(root, f), arcname=f)
+    try:
+        separator.separate_to_file(input_path, output_dir)
+        return jsonify({'message': 'Separation complete', 'output_dir': output_dir})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
-    # Send the zip file
-    return send_file(zip_path, as_attachment=True, download_name="separated_audio.zip")
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+if __name__ == "__main__":
+    app.run(host='0.0.0.0', port=10000)
