@@ -1,105 +1,71 @@
-import os
-from flask import Flask, request, jsonify, send_file, render_template_string
-from werkzeug.utils import secure_filename
+from flask import Flask, request, jsonify, send_file, render_template
 from spleeter.separator import Separator
+import os
+import tempfile
+import logging
 
-# Disable GPU since Render doesn't have CUDA
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+# Setup logging (Render will capture this)
+logging.basicConfig(level=logging.INFO)
 
-# Initialize Flask
-app = Flask(__name__)
+# Flask app setup
+app = Flask(__name__, template_folder="templates", static_folder="static")
 
-# Initialize Spleeter for 2-stem separation (vocals + accompaniment)
+# Spleeter separator (2 stems: vocals + accompaniment)
 separator = Separator('spleeter:2stems')
 
-# Simple HTML page (no need for templates folder)
-HTML_PAGE = """
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Audio Separation API</title>
-  <style>
-    body { font-family: Arial, sans-serif; text-align: center; margin-top: 60px; }
-    input, button { padding: 10px; margin-top: 20px; font-size: 16px; }
-    button { cursor: pointer; background-color: #4CAF50; color: white; border: none; }
-    button:hover { background-color: #45a049; }
-  </style>
-</head>
-<body>
-  <h1>Welcome to the Audio Separation API!</h1>
-  <p>Upload an audio file to separate its vocals and background.</p>
-  <form id="uploadForm" enctype="multipart/form-data" method="POST" action="/separate">
-    <input type="file" name="audio" accept="audio/*" required>
-    <br>
-    <button type="submit">Upload & Separate</button>
-  </form>
-  <div id="result"></div>
-  <script>
-    const form = document.getElementById('uploadForm');
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const formData = new FormData(form);
-      document.getElementById('result').innerHTML = "Processing...";
-      try {
-        const res = await fetch('/separate', { method: 'POST', body: formData });
-        const data = await res.json();
-        if (res.ok) {
-          document.getElementById('result').innerHTML =
-            `<p>✅ Separation complete!</p><pre>${JSON.stringify(data, null, 2)}</pre>`;
-        } else {
-          document.getElementById('result').innerHTML = `<p>❌ Error: ${data.error}</p>`;
-        }
-      } catch (err) {
-        document.getElementById('result').innerHTML = `<p>❌ Network error</p>`;
-      }
-    });
-  </script>
-</body>
-</html>
-"""
-
-@app.route('/')
+@app.route("/")
 def home():
-    return render_template_string(HTML_PAGE)
+    return render_template("index.html")
 
-@app.route('/separate', methods=['POST'])
+@app.route("/separate", methods=["POST"])
 def separate_audio():
-    # Ensure a file is uploaded
-    if 'audio' not in request.files:
-        return jsonify({'error': 'No audio file uploaded'}), 400
+    # Check file field
+    if "file" not in request.files:
+        logging.error("No file part in request")
+        return jsonify({"error": "No file part"}), 400
 
-    audio_file = request.files['audio']
-    filename = secure_filename(audio_file.filename)
-    if not filename:
-        return jsonify({'error': 'Invalid filename'}), 400
+    file = request.files["file"]
+    if file.filename == "":
+        logging.error("Empty filename")
+        return jsonify({"error": "No selected file"}), 400
 
-    # Temporary paths (Render allows writing to /tmp)
-    input_path = os.path.join('/tmp', filename)
-    output_dir = os.path.join('/tmp', 'output')
+    # Create temp dirs
+    temp_dir = tempfile.mkdtemp()
+    input_path = os.path.join(temp_dir, file.filename)
+    file.save(input_path)
 
+    output_dir = os.path.join(temp_dir, "output")
     os.makedirs(output_dir, exist_ok=True)
-    audio_file.save(input_path)
 
     try:
-        # Run spleeter
+        # Separate audio
         separator.separate_to_file(input_path, output_dir)
 
-        # Find results
-        output_files = []
-        for root, _, files in os.walk(output_dir):
+        # Collect separated files
+        separated_files = {}
+        for root, dirs, files in os.walk(output_dir):
             for f in files:
-                output_files.append(f"/download/{f}")
+                separated_files[f] = os.path.join(root, f)
 
-        return jsonify({'message': 'Separation complete', 'files': output_files})
+        logging.info(f"Separation done for {file.filename}")
+        return jsonify({
+            "message": "Separation complete ✅",
+            "files": list(separated_files.keys())
+        })
+
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        logging.exception("Error during separation")
+        return jsonify({"error": str(e)}), 500
 
-@app.route('/download/<path:filename>', methods=['GET'])
-def download(filename):
-    file_path = os.path.join('/tmp', 'output', 'audio', filename)
-    if os.path.exists(file_path):
-        return send_file(file_path, as_attachment=True)
-    return jsonify({'error': 'File not found'}), 404
+@app.route("/download/<filename>", methods=["GET"])
+def download_file(filename):
+    # Serve separated files
+    for root, dirs, files in os.walk(tempfile.gettempdir()):
+        if filename in files:
+            return send_file(os.path.join(root, filename), as_attachment=True)
+    return jsonify({"error": "File not found"}), 404
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=10000)
+    # Important for Render — must bind to 0.0.0.0 and port 10000 if set
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
