@@ -1,76 +1,63 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Audio Separation API</title>
+    <meta charset="UTF-8">
+    <title>Audio Separation API</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        input, button { margin: 10px 0; }
+    </style>
 </head>
 <body>
-  <h1>Audio Separation API</h1>
+    <h1>Audio Separation API</h1>
+    <form id="audioForm">
+        <input type="file" name="audio" accept="audio/*" required>
+        <button type="submit">Upload & Separate</button>
+    </form>
 
-  <input type="file" id="audioFile" accept="audio/*" />
-  <button id="uploadBtn">Upload & Separate</button>
+    <h2 id="status"></h2>
 
-  <h3 id="status"></h3>
+    <div id="results" style="display:none;">
+        <h3>Vocals</h3>
+        <audio id="vocalsPlayer" controls></audio>
 
-  <div id="results" style="display:none;">
-    <h2>Vocals</h2>
-    <audio id="vocalsPlayer" controls></audio>
+        <h3>Accompaniment</h3>
+        <audio id="accompanimentPlayer" controls></audio>
+    </div>
 
-    <h2>Accompaniment</h2>
-    <audio id="accPlayer" controls></audio>
-  </div>
+    <script>
+        const form = document.getElementById("audioForm");
+        const status = document.getElementById("status");
+        const resultsDiv = document.getElementById("results");
+        const vocalsPlayer = document.getElementById("vocalsPlayer");
+        const accompanimentPlayer = document.getElementById("accompanimentPlayer");
 
-  <script>
-    const uploadBtn = document.getElementById('uploadBtn');
-    const audioFile = document.getElementById('audioFile');
-    const status = document.getElementById('status');
-    const results = document.getElementById('results');
-    const vocalsPlayer = document.getElementById('vocalsPlayer');
-    const accPlayer = document.getElementById('accPlayer');
+        form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            status.textContent = "Processing...";
+            resultsDiv.style.display = "none";
 
-    uploadBtn.addEventListener('click', async () => {
-      if (!audioFile.files[0]) {
-        alert("Please select a file");
-        return;
-      }
+            const formData = new FormData(form);
 
-      status.textContent = "Processing...";
-      results.style.display = 'none';
+            try {
+                const res = await fetch("/separate", {
+                    method: "POST",
+                    body: formData
+                });
 
-      const formData = new FormData();
-      formData.append('file', audioFile.files[0]);
+                if (!res.ok) throw new Error("Server error");
 
-      try {
-        const response = await fetch('/separate', {
-          method: 'POST',
-          body: formData
+                const data = await res.json();
+                status.textContent = data.message;
+
+                vocalsPlayer.src = data.vocals;
+                accompanimentPlayer.src = data.accompaniment;
+                resultsDiv.style.display = "block";
+
+            } catch (err) {
+                status.textContent = "❌ " + err.message;
+            }
         });
-
-        if (!response.ok) {
-          throw new Error("Server error");
-        }
-
-        const data = await response.json();
-        status.textContent = data.message;
-
-        // Fetch the separated audio as blobs
-        const vocalsResp = await fetch(`/download/vocals/${data.vocals_name}`);
-        const accResp = await fetch(`/download/accompaniment/${data.accompaniment_name}`);
-
-        const vocalsBlob = await vocalsResp.blob();
-        const accBlob = await accResp.blob();
-
-        // Create object URLs for audio players
-        vocalsPlayer.src = URL.createObjectURL(vocalsBlob);
-        accPlayer.src = URL.createObjectURL(accBlob);
-
-        results.style.display = 'block';
-
-      } catch (err) {
-        console.error(err);
-        status.textContent = "Error: " + err.message;
-      }
-    });
-  </script>
+    </script>
 </body>
 </html>
