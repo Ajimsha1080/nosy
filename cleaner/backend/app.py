@@ -1,19 +1,21 @@
 import os
 import uuid
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, render_template
 from spleeter.separator import Separator
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 
+# Folder to store uploaded and separated audio
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+# Initialize Spleeter 2-stems separator (vocals + accompaniment)
 separator = Separator('spleeter:2stems')
 
 @app.route("/", methods=["GET"])
 def home():
-    return "Audio Separation API is live!"
+    return render_template("index.html")
 
 @app.route("/separate", methods=["POST"])
 def separate():
@@ -29,32 +31,33 @@ def separate():
     input_path = os.path.join(UPLOAD_FOLDER, f"{uid}_{filename}")
     file.save(input_path)
 
+    # Folder for output
     output_folder = os.path.join(UPLOAD_FOLDER, f"{uid}_output")
     os.makedirs(output_folder, exist_ok=True)
 
-    # Separate audio
+    # Perform separation
     separator.separate_to_file(input_path, output_folder)
 
-    # Get output paths
-    base_name = filename.rsplit(".", 1)[0]  # without extension
+    # Paths to separated files
+    base_name = os.path.splitext(filename)[0]
     vocals_path = os.path.join(output_folder, base_name, "vocals.wav")
     accompaniment_path = os.path.join(output_folder, base_name, "accompaniment.wav")
 
     if not os.path.exists(vocals_path) or not os.path.exists(accompaniment_path):
         return jsonify({"error": "Separation failed"}), 500
 
-    # Return URLs for frontend
+    # Return paths for frontend to fetch
     return jsonify({
         "message": "Separation complete ✅",
-        "vocals_url": f"/download/{uid}_output/{base_name}/vocals.wav",
-        "accompaniment_url": f"/download/{uid}_output/{base_name}/accompaniment.wav"
+        "vocals": f"/download/{uid}_output/{base_name}/vocals.wav",
+        "accompaniment": f"/download/{uid}_output/{base_name}/accompaniment.wav"
     })
 
-@app.route("/download/<path:filepath>", methods=["GET"])
-def download(filepath):
-    full_path = os.path.join(UPLOAD_FOLDER, filepath)
-    if os.path.exists(full_path):
-        return send_file(full_path, as_attachment=True)
+@app.route("/download/<path:filename>", methods=["GET"])
+def download_file(filename):
+    file_path = os.path.join(UPLOAD_FOLDER, filename)
+    if os.path.exists(file_path):
+        return send_file(file_path, as_attachment=True)
     else:
         return jsonify({"error": "File not found"}), 404
 
