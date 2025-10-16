@@ -1,59 +1,72 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Audio Separation API</title>
+  <meta charset="UTF-8">
+  <title>Audio Separation API</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 30px; }
+    .audio-container { margin-top: 20px; }
+  </style>
 </head>
 <body>
-    <h1>Audio Separation API</h1>
-    <form id="upload-form">
-        <input type="file" name="file" accept="audio/*" required>
-        <button type="submit">Upload & Separate</button>
-    </form>
+  <h1>Audio Separation API</h1>
 
-    <div id="result" style="margin-top: 20px;"></div>
+  <input type="file" id="audioFile" accept=".mp3,.wav">
+  <button onclick="uploadFile()">Upload & Separate</button>
 
-    <script>
-        const form = document.getElementById("upload-form");
-        const resultDiv = document.getElementById("result");
+  <p id="status"></p>
 
-        form.addEventListener("submit", async (e) => {
-            e.preventDefault();
-            const fileInput = form.querySelector('input[name="file"]');
-            const file = fileInput.files[0];
-            if (!file) return alert("Please select a file");
+  <div class="audio-container" id="audios" style="display:none;">
+    <h2>Vocals</h2>
+    <audio id="vocals" controls></audio>
+    
+    <h2>Accompaniment</h2>
+    <audio id="accompaniment" controls></audio>
+  </div>
 
-            const formData = new FormData();
-            formData.append("file", file);
+<script>
+async function uploadFile() {
+    const fileInput = document.getElementById('audioFile');
+    const status = document.getElementById('status');
+    const audiosDiv = document.getElementById('audios');
+    const vocalsAudio = document.getElementById('vocals');
+    const accompanimentAudio = document.getElementById('accompaniment');
 
-            resultDiv.innerHTML = "Processing... ⏳";
+    if (!fileInput.files.length) {
+        status.textContent = "Please select a file!";
+        return;
+    }
 
-            try {
-                const res = await fetch("/separate", {
-                    method: "POST",
-                    body: formData
-                });
-                const data = await res.json();
+    const formData = new FormData();
+    formData.append("file", fileInput.files[0]);
 
-                if (data.error) {
-                    resultDiv.innerHTML = "Error: " + data.error;
-                } else {
-                    resultDiv.innerHTML = `
-                        <p>${data.message}</p>
-                        <h3>Vocals</h3>
-                        <audio controls src="${data.vocals_url}"></audio>
-                        <a href="${data.vocals_url}" download>Download Vocals</a>
-                        <h3>Accompaniment</h3>
-                        <audio controls src="${data.accompaniment_url}"></audio>
-                        <a href="${data.accompaniment_url}" download>Download Accompaniment</a>
-                    `;
-                }
-            } catch (err) {
-                resultDiv.innerHTML = "Server error. Try again.";
-                console.error(err);
-            }
+    status.textContent = "Processing... Please wait ⏳";
+
+    try {
+        const res = await fetch("/separate", {
+            method: "POST",
+            body: formData
         });
-    </script>
+
+        const data = await res.json();
+
+        if (res.ok) {
+            status.textContent = data.message;
+            vocalsAudio.src = data.vocals_url;
+            accompanimentAudio.src = data.accompaniment_url;
+            audiosDiv.style.display = "block";
+        } else {
+            status.textContent = data.error || "Server error. Try again.";
+            audiosDiv.style.display = "none";
+        }
+
+    } catch (err) {
+        status.textContent = "Network error. Try again.";
+        audiosDiv.style.display = "none";
+        console.error(err);
+    }
+}
+</script>
+
 </body>
 </html>
