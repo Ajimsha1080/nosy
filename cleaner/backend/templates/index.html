@@ -1,53 +1,56 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Audio Separation</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Audio Separation</title>
 </head>
 <body>
-    <h1>Audio Separation API</h1>
-    <form id="upload-form" enctype="multipart/form-data">
-        <input type="file" name="file" id="file" accept="audio/*" required>
-        <button type="submit">Upload & Separate</button>
-    </form>
+<h1>Audio Separation API</h1>
 
-    <div id="results" style="margin-top: 20px;"></div>
+<form id="audioForm">
+    <input type="file" name="file" id="fileInput" accept="audio/*" required>
+    <button type="submit">Upload & Separate</button>
+</form>
 
-    <script>
-        const form = document.getElementById('upload-form');
-        const resultsDiv = document.getElementById('results');
+<div id="results"></div>
 
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const fileInput = document.getElementById('file');
-            const formData = new FormData();
-            formData.append('file', fileInput.files[0]);
+<script>
+const form = document.getElementById('audioForm');
+const results = document.getElementById('results');
 
-            resultsDiv.innerHTML = 'Processing...';
+form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    results.innerHTML = "Processing... 🎵";
 
-            try {
-                const response = await fetch('/separate', {
-                    method: 'POST',
-                    body: formData
-                });
+    const file = document.getElementById('fileInput').files[0];
+    const formData = new FormData();
+    formData.append('file', file);
 
-                const data = await response.json();
+    try {
+        const response = await fetch('/separate', { method: 'POST', body: formData });
+        const data = await response.json();
 
-                if (data.vocals && data.accompaniment) {
-                    resultsDiv.innerHTML = `
-                        <h2>Vocals</h2>
-                        <audio controls src="${data.vocals}"></audio>
-                        <h2>Accompaniment</h2>
-                        <audio controls src="${data.accompaniment}"></audio>
-                    `;
-                } else {
-                    resultsDiv.innerHTML = 'Error: No audio returned.';
-                }
-            } catch (err) {
-                resultsDiv.innerHTML = 'Error processing the audio.';
-                console.error(err);
-            }
-        });
-    </script>
+        if (data.error) {
+            results.innerHTML = `❌ ${data.error}`;
+            return;
+        }
+
+        // Show audio players
+        results.innerHTML = `
+            <h2>Vocals</h2>
+            <audio controls autoplay src="${data.vocals}"></audio>
+
+            <h2>Accompaniment</h2>
+            <audio controls autoplay src="${data.accompaniment}"></audio>
+
+            <p>${data.message}</p>
+        `;
+    } catch (err) {
+        console.error(err);
+        results.innerHTML = "❌ Error processing audio";
+    }
+});
+</script>
 </body>
 </html>
