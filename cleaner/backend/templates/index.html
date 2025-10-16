@@ -1,1 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Separation API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+        }
+        form {
+            margin-top: 30px;
+        }
+        input[type="file"] {
+            margin: 20px 0;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #result {
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Welcome to the Audio Separation API!</h1>
+    <p>Upload an audio file to separate its components.</p>
 
+    <form id="uploadForm">
+        <input type="file" name="file" id="fileInput" accept="audio/*" required>
+        <br>
+        <button type="submit">Upload & Separate</button>
+    </form>
+
+    <div id="result"></div>
+
+    <script>
+        const form = document.getElementById('uploadForm');
+        const resultDiv = document.getElementById('result');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            resultDiv.innerHTML = "<p>Processing...</p>";
+
+            try {
+                const response = await fetch('/separate', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error("Server error");
+
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+
+                resultDiv.innerHTML = `
+                    <p>Audio separated successfully! Download below:</p>
+                    <a href="${url}" download="separated_audio.zip">Download Separated Audio</a>
+                `;
+            } catch (err) {
+                resultDiv.innerHTML = `<p style="color:red;">Error: ${err.message}</p>`;
+            }
+        });
+    </script>
+</body>
+</html>
