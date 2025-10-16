@@ -1,75 +1,72 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Audio Separation API</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Separation API</title>
 </head>
 <body>
-<h1>Audio Separation API</h1>
+    <h1>Audio Separation API</h1>
+    <form id="upload-form">
+        <input type="file" name="file" id="file-input" accept=".mp3,.wav" required>
+        <button type="submit">Upload & Separate</button>
+    </form>
 
-<input type="file" id="audioFile" accept=".mp3,.wav">
-<button onclick="uploadFile()">Upload & Separate</button>
+    <h2 id="status"></h2>
 
-<p id="status"></p>
+    <div id="result" style="display:none;">
+        <h3>Vocals:</h3>
+        <audio id="vocals" controls></audio>
+        <a id="download-vocals" download>Download Vocals</a>
 
-<div id="audios" style="display:none;">
-    <h2>Vocals</h2>
-    <audio id="vocals" controls></audio>
+        <h3>Accompaniment:</h3>
+        <audio id="accompaniment" controls></audio>
+        <a id="download-accompaniment" download>Download Accompaniment</a>
+    </div>
 
-    <h2>Accompaniment</h2>
-    <audio id="accompaniment" controls></audio>
-</div>
+    <script>
+        const form = document.getElementById("upload-form");
+        const status = document.getElementById("status");
+        const resultDiv = document.getElementById("result");
+        const vocalsAudio = document.getElementById("vocals");
+        const accAudio = document.getElementById("accompaniment");
+        const downloadVocals = document.getElementById("download-vocals");
+        const downloadAcc = document.getElementById("download-accompaniment");
 
-<script>
-async function uploadFile() {
-    const fileInput = document.getElementById("audioFile");
-    const status = document.getElementById("status");
-    const audiosDiv = document.getElementById("audios");
-    const vocalsAudio = document.getElementById("vocals");
-    const accompanimentAudio = document.getElementById("accompaniment");
+        form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const fileInput = document.getElementById("file-input");
+            if (!fileInput.files.length) return;
 
-    if (!fileInput.files.length) {
-        status.textContent = "Please select a file!";
-        return;
-    }
+            status.textContent = "Processing...";
+            resultDiv.style.display = "none";
 
-    const formData = new FormData();
-    formData.append("file", fileInput.files[0]);
+            const formData = new FormData();
+            formData.append("file", fileInput.files[0]);
 
-    status.textContent = "Processing... ⏳";
+            try {
+                const res = await fetch("/separate", {
+                    method: "POST",
+                    body: formData
+                });
 
-    try {
-        const res = await fetch("/separate", { method: "POST", body: formData });
-        const data = await res.json();
+                const data = await res.json();
 
-        if (res.ok) {
-            status.textContent = data.message;
-            vocalsAudio.src = data.vocals_url;
-            accompanimentAudio.src = data.accompaniment_url;
-            audiosDiv.style.display = "block";
-
-            // Auto-download
-            downloadFile(data.vocals_url, "vocals.wav");
-            downloadFile(data.accompaniment_url, "accompaniment.wav");
-        } else {
-            status.textContent = data.error || "Server error. Try again.";
-            audiosDiv.style.display = "none";
-        }
-    } catch (err) {
-        status.textContent = "Network error. Try again.";
-        audiosDiv.style.display = "none";
-        console.error(err);
-    }
-}
-
-function downloadFile(url, filename) {
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-}
-</script>
+                if (res.ok) {
+                    status.textContent = data.message;
+                    vocalsAudio.src = data.vocals;
+                    accAudio.src = data.accompaniment;
+                    downloadVocals.href = data.vocals;
+                    downloadAcc.href = data.accompaniment;
+                    resultDiv.style.display = "block";
+                } else {
+                    status.textContent = data.error || "Separation failed";
+                }
+            } catch (err) {
+                status.textContent = "Network error. Try again.";
+                console.error(err);
+            }
+        });
+    </script>
 </body>
 </html>
