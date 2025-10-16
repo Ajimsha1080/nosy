@@ -16,8 +16,8 @@ UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # -------------------------
-# Initialize Spleeter 2-stems separator (CPU only)
-separator = Separator('spleeter:2stems', multiprocess=False, codec='wav')
+# Initialize Spleeter (CPU-only)
+separator = Separator('spleeter:2stems', multiprocess=False)
 
 # -------------------------
 @app.route("/", methods=["GET"])
@@ -49,15 +49,18 @@ def separate():
     separator.separate_to_file(input_path, output_folder)
     logging.info("Separation finished!")
 
-    # Paths to separated files
+    # The output folder structure is: output_folder/{basename}/
     base_name = filename.rsplit(".", 1)[0]
-    vocals_path = os.path.join(output_folder, base_name, "vocals.wav")
-    accompaniment_path = os.path.join(output_folder, base_name, "accompaniment.wav")
+    base_dir = os.path.join(output_folder, base_name)
+
+    vocals_path = os.path.join(base_dir, "vocals.wav")
+    accompaniment_path = os.path.join(base_dir, "accompaniment.wav")
 
     if not os.path.exists(vocals_path) or not os.path.exists(accompaniment_path):
+        logging.error("Output files not found after separation!")
         return jsonify({"error": "Separation failed"}), 500
 
-    # Return filenames for frontend
+    # Return relative paths for frontend download/play
     return jsonify({
         "message": "Separation complete ✅",
         "vocals": os.path.relpath(vocals_path, start=UPLOAD_FOLDER),
