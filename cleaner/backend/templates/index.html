@@ -5,50 +5,35 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Audio Separation API</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 40px; text-align: center; }
-    input[type="file"] { margin: 20px 0; }
-    button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
-    .result { margin-top: 30px; }
-    .hidden { display: none; }
+    body { font-family: Arial, sans-serif; padding: 2rem; max-width: 600px; margin: auto; }
+    h1 { text-align: center; }
+    input[type=file] { margin-bottom: 1rem; }
+    audio { display: block; margin: 1rem 0; width: 100%; }
+    button { padding: 0.5rem 1rem; cursor: pointer; }
+    .result { margin-top: 2rem; }
   </style>
 </head>
 <body>
-  <h1>Audio Separation API 🎵</h1>
-  <p>Upload an audio file to separate vocals and accompaniment.</p>
+  <h1>Audio Separation API</h1>
+  <input type="file" id="audioFile" accept="audio/*">
+  <button onclick="uploadAndSeparate()">Upload & Separate</button>
   
-  <input type="file" id="audioFile" accept="audio/*" />
-  <br>
-  <button id="uploadBtn">Upload & Separate</button>
-
-  <div class="result hidden" id="result">
-    <p id="message"></p>
-    <a id="vocalsLink" href="#" download class="hidden">🎤 Download Vocals</a>
-    <br>
-    <a id="accompanimentLink" href="#" download class="hidden">🎹 Download Accompaniment</a>
-  </div>
+  <div class="result" id="result"></div>
 
   <script>
-    const uploadBtn = document.getElementById('uploadBtn');
-    const audioFile = document.getElementById('audioFile');
-    const resultDiv = document.getElementById('result');
-    const messageP = document.getElementById('message');
-    const vocalsLink = document.getElementById('vocalsLink');
-    const accompanimentLink = document.getElementById('accompanimentLink');
-
-    uploadBtn.addEventListener('click', async () => {
-      if (!audioFile.files.length) {
-        alert('Please select an audio file first!');
+    async function uploadAndSeparate() {
+      const fileInput = document.getElementById('audioFile');
+      if (!fileInput.files.length) {
+        alert('Please select an audio file.');
         return;
       }
 
-      const file = audioFile.files[0];
+      const file = fileInput.files[0];
       const formData = new FormData();
-      formData.append('audio', file);
+      formData.append('file', file);
 
-      messageP.textContent = 'Processing... ⏳';
-      resultDiv.classList.remove('hidden');
-      vocalsLink.classList.add('hidden');
-      accompanimentLink.classList.add('hidden');
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerHTML = 'Processing... ⏳';
 
       try {
         const response = await fetch('/separate', {
@@ -56,21 +41,20 @@
           body: formData
         });
 
-        if (!response.ok) throw new Error('Server error');
-
         const data = await response.json();
 
-        messageP.textContent = data.message || 'Separation complete ✅';
-        vocalsLink.href = data.vocals;
-        accompanimentLink.href = data.accompaniment;
-
-        vocalsLink.classList.remove('hidden');
-        accompanimentLink.classList.remove('hidden');
+        resultDiv.innerHTML = `
+          <p>${data.message}</p>
+          <h3>Vocals</h3>
+          <audio controls src="${data.vocals}"></audio>
+          <h3>Accompaniment</h3>
+          <audio controls src="${data.accompaniment}"></audio>
+        `;
       } catch (err) {
         console.error(err);
-        messageP.textContent = '❌ Error: ' + err.message;
+        resultDiv.innerHTML = '❌ Error separating audio. Check console.';
       }
-    });
+    }
   </script>
 </body>
 </html>
