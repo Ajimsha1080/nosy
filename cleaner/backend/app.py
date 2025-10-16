@@ -1,91 +1,54 @@
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_from_directory, render_template
 import os
-import uuid
-import logging
 
-# Import your audio separation function
-# from cleaner.separation import separate_audio_function
-# Replace with your actual function
+app = Flask(__name__, static_folder="../frontend", template_folder="../frontend")
 
-app = Flask(__name__)
-logging.basicConfig(level=logging.INFO)
-
-UPLOAD_FOLDER = "/tmp/uploads"
-OUTPUT_FOLDER = "/tmp/output"
+UPLOAD_FOLDER = os.path.join(os.getcwd(), "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
-def process_audio(input_path):
-    """
-    Replace this with your actual separation logic.
-    It should return paths to vocals and accompaniment files.
-    """
-    # Example: using input filename to create outputs
-    base = os.path.splitext(os.path.basename(input_path))[0]
-    vocals_file = os.path.join(OUTPUT_FOLDER, f"{base}_vocals.wav")
-    accompaniment_file = os.path.join(OUTPUT_FOLDER, f"{base}_accompaniment.wav")
+# Dummy separation function (replace with your real separation code)
+def separate_audio(file_path):
+    base = os.path.splitext(os.path.basename(file_path))[0]
+    vocals = os.path.join(UPLOAD_FOLDER, f"{base}_vocals.wav")
+    accompaniment = os.path.join(UPLOAD_FOLDER, f"{base}_accompaniment.wav")
 
-    # Here, call your real separation function
-    # Example:
-    # separate_audio_function(input_path, vocals_file, accompaniment_file)
-
-    # For now, just copy input as dummy output
+    # Replace this block with your actual separation logic
+    # For testing, just copy original file as both outputs
     import shutil
-    shutil.copy(input_path, vocals_file)
-    shutil.copy(input_path, accompaniment_file)
+    shutil.copyfile(file_path, vocals)
+    shutil.copyfile(file_path, accompaniment)
 
-    return vocals_file, accompaniment_file
+    return vocals, accompaniment
 
-
-@app.route("/")
+@app.route('/')
 def home():
-    return """
-    <h2>Welcome to the Audio Separation API!</h2>
-    <p>Upload an audio file to separate vocals and accompaniment.</p>
-    <form action="/separate" method="post" enctype="multipart/form-data">
-        <input type="file" name="file" accept=".mp3,.wav,.ogg" required>
-        <input type="submit" value="Upload & Separate">
-    </form>
-    """
+    return render_template("index.html")
 
-@app.route("/separate", methods=["POST"])
+@app.route('/separate', methods=['POST'])
 def separate():
-    if "file" not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
+    if 'file' not in request.files:
+        return jsonify({"error": "No file provided"}), 400
 
-    file = request.files["file"]
-    if file.filename == "":
-        return jsonify({"error": "No selected file"}), 400
+    file = request.files['file']
+    filename = file.filename
+    filepath = os.path.join(UPLOAD_FOLDER, filename)
+    file.save(filepath)
 
-    # Save uploaded file
-    unique_id = str(uuid.uuid4())
-    input_path = os.path.join(UPLOAD_FOLDER, f"{unique_id}_{file.filename}")
-    file.save(input_path)
-    logging.info(f"Processing: {file.filename}")
+    vocals_path, accompaniment_path = separate_audio(filepath)
 
-    try:
-        vocals_path, accompaniment_path = process_audio(input_path)
+    # Convert to URLs relative to static path
+    vocals_url = f"/uploads/{os.path.basename(vocals_path)}"
+    accompaniment_url = f"/uploads/{os.path.basename(accompaniment_path)}"
 
-        # Return paths for download (you may want to serve static files properly)
-        return jsonify({
-            "vocals": f"/download/{os.path.basename(vocals_path)}",
-            "accompaniment": f"/download/{os.path.basename(accompaniment_path)}",
-            "message": "Separation complete ✅"
-        })
+    return jsonify({
+        "vocals": vocals_url,
+        "accompaniment": accompaniment_url,
+        "message": "Separation complete ✅"
+    })
 
-    except Exception as e:
-        logging.exception("Error during audio separation")
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route("/download/<filename>")
-def download_file(filename):
-    file_path = os.path.join(OUTPUT_FOLDER, filename)
-    if os.path.exists(file_path):
-        return send_file(file_path, as_attachment=True)
-    else:
-        return jsonify({"error": "File not found"}), 404
-
+@app.route('/uploads/<path:filename>')
+def uploaded_file(filename):
+    return send_from_directory(UPLOAD_FOLDER, filename)
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    app.run(host="0.0.0.0", port=10000, debug=True)
