@@ -1,60 +1,53 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Audio Separation API</title>
-  <style>
-    body { font-family: Arial, sans-serif; padding: 2rem; max-width: 600px; margin: auto; }
-    h1 { text-align: center; }
-    input[type=file] { margin-bottom: 1rem; }
-    audio { display: block; margin: 1rem 0; width: 100%; }
-    button { padding: 0.5rem 1rem; cursor: pointer; }
-    .result { margin-top: 2rem; }
-  </style>
+    <meta charset="UTF-8">
+    <title>Audio Separation</title>
 </head>
 <body>
-  <h1>Audio Separation API</h1>
-  <input type="file" id="audioFile" accept="audio/*">
-  <button onclick="uploadAndSeparate()">Upload & Separate</button>
-  
-  <div class="result" id="result"></div>
+    <h1>Audio Separation API</h1>
+    <form id="upload-form" enctype="multipart/form-data">
+        <input type="file" name="file" id="file" accept="audio/*" required>
+        <button type="submit">Upload & Separate</button>
+    </form>
 
-  <script>
-    async function uploadAndSeparate() {
-      const fileInput = document.getElementById('audioFile');
-      if (!fileInput.files.length) {
-        alert('Please select an audio file.');
-        return;
-      }
+    <div id="results" style="margin-top: 20px;"></div>
 
-      const file = fileInput.files[0];
-      const formData = new FormData();
-      formData.append('file', file);
+    <script>
+        const form = document.getElementById('upload-form');
+        const resultsDiv = document.getElementById('results');
 
-      const resultDiv = document.getElementById('result');
-      resultDiv.innerHTML = 'Processing... ⏳';
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const fileInput = document.getElementById('file');
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
 
-      try {
-        const response = await fetch('/separate', {
-          method: 'POST',
-          body: formData
+            resultsDiv.innerHTML = 'Processing...';
+
+            try {
+                const response = await fetch('/separate', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.vocals && data.accompaniment) {
+                    resultsDiv.innerHTML = `
+                        <h2>Vocals</h2>
+                        <audio controls src="${data.vocals}"></audio>
+                        <h2>Accompaniment</h2>
+                        <audio controls src="${data.accompaniment}"></audio>
+                    `;
+                } else {
+                    resultsDiv.innerHTML = 'Error: No audio returned.';
+                }
+            } catch (err) {
+                resultsDiv.innerHTML = 'Error processing the audio.';
+                console.error(err);
+            }
         });
-
-        const data = await response.json();
-
-        resultDiv.innerHTML = `
-          <p>${data.message}</p>
-          <h3>Vocals</h3>
-          <audio controls src="${data.vocals}"></audio>
-          <h3>Accompaniment</h3>
-          <audio controls src="${data.accompaniment}"></audio>
-        `;
-      } catch (err) {
-        console.error(err);
-        resultDiv.innerHTML = '❌ Error separating audio. Check console.';
-      }
-    }
-  </script>
+    </script>
 </body>
 </html>
