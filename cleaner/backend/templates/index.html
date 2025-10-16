@@ -2,62 +2,72 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Audio Separation API</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; }
-        input, button { margin: 10px 0; }
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .container { max-width: 600px; margin: auto; }
+        input[type=file] { margin-bottom: 10px; }
+        button { margin-top: 10px; padding: 10px 15px; }
+        audio { display: block; margin: 10px 0; width: 100%; }
     </style>
 </head>
 <body>
-    <h1>Audio Separation API</h1>
-    <form id="audioForm">
-        <input type="file" name="audio" accept="audio/*" required>
-        <button type="submit">Upload & Separate</button>
-    </form>
+    <div class="container">
+        <h1>Audio Separation API</h1>
+        <input type="file" id="audioFile" accept="audio/*">
+        <button onclick="uploadFile()">Upload & Separate</button>
 
-    <h2 id="status"></h2>
+        <p id="status"></p>
 
-    <div id="results" style="display:none;">
-        <h3>Vocals</h3>
-        <audio id="vocalsPlayer" controls></audio>
+        <div id="result" style="display: none;">
+            <h3>Vocals</h3>
+            <audio id="vocalsAudio" controls></audio>
+            <a id="vocalsDownload" download>Download Vocals</a>
 
-        <h3>Accompaniment</h3>
-        <audio id="accompanimentPlayer" controls></audio>
+            <h3>Accompaniment</h3>
+            <audio id="accompanimentAudio" controls></audio>
+            <a id="accompanimentDownload" download>Download Accompaniment</a>
+        </div>
     </div>
 
     <script>
-        const form = document.getElementById("audioForm");
-        const status = document.getElementById("status");
-        const resultsDiv = document.getElementById("results");
-        const vocalsPlayer = document.getElementById("vocalsPlayer");
-        const accompanimentPlayer = document.getElementById("accompanimentPlayer");
+        async function uploadFile() {
+            const fileInput = document.getElementById("audioFile");
+            if (!fileInput.files.length) {
+                alert("Please select a file.");
+                return;
+            }
 
-        form.addEventListener("submit", async (e) => {
-            e.preventDefault();
-            status.textContent = "Processing...";
-            resultsDiv.style.display = "none";
+            const file = fileInput.files[0];
+            const formData = new FormData();
+            formData.append("file", file);
 
-            const formData = new FormData(form);
+            document.getElementById("status").innerText = "Separating audio... 🎵";
+            document.getElementById("result").style.display = "none";
 
             try {
-                const res = await fetch("/separate", {
+                const response = await fetch("/separate", {
                     method: "POST",
                     body: formData
                 });
 
-                if (!res.ok) throw new Error("Server error");
+                const data = await response.json();
 
-                const data = await res.json();
-                status.textContent = data.message;
-
-                vocalsPlayer.src = data.vocals;
-                accompanimentPlayer.src = data.accompaniment;
-                resultsDiv.style.display = "block";
-
+                if (response.ok) {
+                    document.getElementById("status").innerText = data.message;
+                    document.getElementById("vocalsAudio").src = "/" + data.vocals;
+                    document.getElementById("vocalsDownload").href = "/" + data.vocals;
+                    document.getElementById("accompanimentAudio").src = "/" + data.accompaniment;
+                    document.getElementById("accompanimentDownload").href = "/" + data.accompaniment;
+                    document.getElementById("result").style.display = "block";
+                } else {
+                    document.getElementById("status").innerText = data.error;
+                }
             } catch (err) {
-                status.textContent = "❌ " + err.message;
+                document.getElementById("status").innerText = "Error: " + err.message;
             }
-        });
+        }
     </script>
 </body>
 </html>
