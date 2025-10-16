@@ -3,7 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <title>Audio Separation API</title>
-  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    body { font-family: Arial; padding: 40px; text-align: center; }
+    button { padding: 10px 20px; font-size: 16px; }
+    #status { margin-top: 20px; font-weight: bold; }
+  </style>
 </head>
 <body>
   <h1>🎵 Welcome to the Audio Separation API!</h1>
@@ -14,7 +18,7 @@
     <button type="submit">Upload & Separate</button>
   </form>
 
-  <p id="status"></p>
+  <div id="status"></div>
 
   <script>
     document.getElementById("uploadForm").addEventListener("submit", async (e) => {
@@ -22,6 +26,7 @@
 
       const fileInput = document.getElementById("audioFile");
       const status = document.getElementById("status");
+
       if (!fileInput.files.length) {
         status.textContent = "⚠️ Please choose a file first.";
         return;
@@ -33,18 +38,20 @@
       formData.append("file", fileInput.files[0]);
 
       try {
-        const response = await fetch("/separate", {
-          method: "POST",
-          body: formData
-        });
+        const response = await fetch("/separate", { method: "POST", body: formData });
+        const text = await response.text(); // Read raw response first
 
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error || "Unknown server error");
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch {
+            throw new Error("Server returned invalid JSON. Check logs on Render.");
         }
 
+        if (!response.ok) throw new Error(data.error || "Unknown server error");
+
         status.textContent = "✅ " + data.message + "\nFiles: " + data.files.join(", ");
+
       } catch (err) {
         console.error(err);
         status.textContent = "❌ " + err.message;
