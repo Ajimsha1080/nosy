@@ -1,82 +1,78 @@
 import os
 import uuid
 import logging
-from flask import Flask, request, jsonify, send_file, render_template
+from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
 from spleeter.separator import Separator
 from werkzeug.utils import secure_filename
 
-# -------------------------
-# Logging
-logging.basicConfig(level=logging.INFO)
-
-# -------------------------
-app = Flask(__name__)
+app = Flask(__name__, static_folder="frontend", static_url_path="")
+CORS(app)
 
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# -------------------------
-# Initialize Spleeter (CPU-only)
-separator = Separator('spleeter:2stems', multiprocess=False)
+# Initialize separator
+separator = Separator("spleeter:2stems")
 
-# -------------------------
-@app.route("/", methods=["GET"])
-def home():
-    return render_template("index.html")
+logging.basicConfig(level=logging.INFO)
 
-# -------------------------
+@app.route("/")
+def index():
+    # Serve frontend
+    return app.send_static_file("index.html")
+
 @app.route("/separate", methods=["POST"])
-def separate():
+def separate_audio():
     if "file" not in request.files:
-        return jsonify({"error": "No file part"}), 400
+        return jsonify({"error": "No file uploaded"}), 400
 
     file = request.files["file"]
     if file.filename == "":
-        return jsonify({"error": "No selected file"}), 400
+        return jsonify({"error": "Empty filename"}), 400
 
+    # Save input
     filename = secure_filename(file.filename)
     uid = str(uuid.uuid4())
     input_path = os.path.join(UPLOAD_FOLDER, f"{uid}_{filename}")
     file.save(input_path)
     logging.info(f"Saved uploaded file: {input_path}")
 
-    # Output folder
+    # Prepare output folder
     output_folder = os.path.join(UPLOAD_FOLDER, f"{uid}_output")
     os.makedirs(output_folder, exist_ok=True)
 
-    # Perform separation
-    logging.info("Starting separation...")
-    separator.separate_to_file(input_path, output_folder)
-    logging.info("Separation finished!")
+    try:
+        logging.info("Starting separation...")
+        separator.separate_to_file(input_path, output_folder)
+        logging.info("Separation complete ✅")
 
-    # The output folder structure is: output_folder/{basename}/
-    base_name = filename.rsplit(".", 1)[0]
-    base_dir = os.path.join(output_folder, base_name)
+        base_name = os.path.splitext(filename)[0]
+        result_folder = os.path.join(output_folder, base_name)
 
-    vocals_path = os.path.join(base_dir, "vocals.wav")
-    accompaniment_path = os.path.join(base_dir, "accompaniment.wav")
+        vocals = os.path.join(result_folder, "vocals.wav")
+        accompaniment = os.path.join(result_folder, "accompaniment.wav")
 
-    if not os.path.exists(vocals_path) or not os.path.exists(accompaniment_path):
-        logging.error("Output files not found after separation!")
-        return jsonify({"error": "Separation failed"}), 500
+        if not os.path.exists(vocals) or not os.path.exists(accompaniment):
+            raise FileNotFoundError("Separated files not found.")
 
-    # Return relative paths for frontend download/play
-    return jsonify({
-        "message": "Separation complete ✅",
-        "vocals": os.path.relpath(vocals_path, start=UPLOAD_FOLDER),
-        "accompaniment": os.path.relpath(accompaniment_path, start=UPLOAD_FOLDER)
-    })
+        return jsonify({
+            "message": "Separation complete ✅",
+            "vocals": f"{uid}_output/{base_name}/vocals.wav",
+            "accompaniment": f"{uid}_output/{base_name}/accompaniment.wav"
+        })
 
-# -------------------------
-@app.route("/download/<path:filename>", methods=["GET"])
-def download_file(filename):
-    file_path = os.path.join(UPLOAD_FOLDER, filename)
-    if os.path.exists(file_path):
-        return send_file(file_path, as_attachment=True)
-    else:
-        return jsonify({"error": "File not found"}), 404
+    except Exception as e:
+        logging.exception("Error during separation")
+        return jsonify({"error": f"Could not process file: {str(e)}"}), 500
 
-# -------------------------
+
+@app.route("/download/<path:filename>")
+def download(filename):
+    directory = os.path.join(UPLOAD_FOLDER)
+    return send_from_directory(directory, filename, as_attachment=False)
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
