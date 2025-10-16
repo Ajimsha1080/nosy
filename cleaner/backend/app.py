@@ -1,68 +1,75 @@
-import os
-import uuid
-from flask import Flask, request, jsonify, send_file, render_template
-from spleeter.separator import Separator
-from werkzeug.utils import secure_filename
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Audio Separation API</title>
+</head>
+<body>
+<h1>Audio Separation API</h1>
 
-app = Flask(__name__)
+<input type="file" id="audioFile" accept=".mp3,.wav">
+<button onclick="uploadFile()">Upload & Separate</button>
 
-# Folders
-BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+<p id="status"></p>
 
-# Initialize Spleeter 2-stems separator (vocals + accompaniment)
-separator = Separator('spleeter:2stems')
+<div id="audios" style="display:none;">
+    <h2>Vocals</h2>
+    <audio id="vocals" controls></audio>
 
-@app.route("/", methods=["GET"])
-def home():
-    return render_template("index.html")
+    <h2>Accompaniment</h2>
+    <audio id="accompaniment" controls></audio>
+</div>
 
-@app.route("/separate", methods=["POST"])
-def separate():
-    if "file" not in request.files:
-        return jsonify({"error": "No file part"}), 400
+<script>
+async function uploadFile() {
+    const fileInput = document.getElementById("audioFile");
+    const status = document.getElementById("status");
+    const audiosDiv = document.getElementById("audios");
+    const vocalsAudio = document.getElementById("vocals");
+    const accompanimentAudio = document.getElementById("accompaniment");
 
-    file = request.files["file"]
-    if file.filename == "":
-        return jsonify({"error": "No selected file"}), 400
+    if (!fileInput.files.length) {
+        status.textContent = "Please select a file!";
+        return;
+    }
 
-    filename = secure_filename(file.filename)
-    uid = str(uuid.uuid4())
-    input_path = os.path.join(UPLOAD_FOLDER, f"{uid}_{filename}")
-    file.save(input_path)
+    const formData = new FormData();
+    formData.append("file", fileInput.files[0]);
 
-    output_folder = os.path.join(UPLOAD_FOLDER, f"{uid}_output")
-    os.makedirs(output_folder, exist_ok=True)
+    status.textContent = "Processing... ⏳";
 
-    try:
-        separator.separate_to_file(input_path, output_folder)
-    except Exception as e:
-        return jsonify({"error": f"Separation failed: {str(e)}"}), 500
+    try {
+        const res = await fetch("/separate", { method: "POST", body: formData });
+        const data = await res.json();
 
-    # Build paths for frontend
-    separated_folder = os.path.join(output_folder, filename.replace(".mp3",""))
-    vocals_path = os.path.join(separated_folder, "vocals.wav")
-    accompaniment_path = os.path.join(separated_folder, "accompaniment.wav")
+        if (res.ok) {
+            status.textContent = data.message;
+            vocalsAudio.src = data.vocals_url;
+            accompanimentAudio.src = data.accompaniment_url;
+            audiosDiv.style.display = "block";
 
-    if not os.path.exists(vocals_path) or not os.path.exists(accompaniment_path):
-        return jsonify({"error": "Separation failed"}), 500
+            // Auto-download
+            downloadFile(data.vocals_url, "vocals.wav");
+            downloadFile(data.accompaniment_url, "accompaniment.wav");
+        } else {
+            status.textContent = data.error || "Server error. Try again.";
+            audiosDiv.style.display = "none";
+        }
+    } catch (err) {
+        status.textContent = "Network error. Try again.";
+        audiosDiv.style.display = "none";
+        console.error(err);
+    }
+}
 
-    return jsonify({
-        "message": "Separation complete ✅",
-        "vocals_url": f"/download/{uid}_output/{filename.replace('.mp3','')}/vocals.wav",
-        "accompaniment_url": f"/download/{uid}_output/{filename.replace('.mp3','')}/accompaniment.wav"
-    })
-
-
-@app.route("/download/<path:filename>", methods=["GET"])
-def download_file(filename):
-    file_path = os.path.join(UPLOAD_FOLDER, filename)
-    if os.path.exists(file_path):
-        return send_file(file_path)
-    return jsonify({"error": "File not found"}), 404
-
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+function downloadFile(url, filename) {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+</script>
+</body>
+</html>
