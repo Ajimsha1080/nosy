@@ -8,7 +8,8 @@ numpy
 scipy
 gunicorn
 protobuf<=3.20.3
-
+flask-cors
+werkzeug
 
 
 # Spleeter (audio separation)
