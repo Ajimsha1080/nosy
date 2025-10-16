@@ -1,70 +1,43 @@
-from flask import Flask, request, jsonify, send_file
-from io import BytesIO
 import os
+import uuid
+from flask import Flask, request, jsonify, send_file, render_template
 from werkzeug.utils import secure_filename
+from some_audio_separation_module import separate_audio  # Replace with your separation logic
 
 app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = "uploads"
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+UPLOAD_FOLDER = "temp"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Dummy audio separation function
-# Replace this with your real separation code
-def separate_audio(file_bytes, filename):
-    # In a real case, generate vocals_data and accompaniment_data
-    # Here we just return the same file for demonstration
-    vocals_io = BytesIO(file_bytes)
-    accompaniment_io = BytesIO(file_bytes)
-
-    vocals_io.seek(0)
-    accompaniment_io.seek(0)
-
-    vocals_name = f"vocals_{filename}.wav"
-    accompaniment_name = f"accompaniment_{filename}.wav"
-
-    return (vocals_io, vocals_name), (accompaniment_io, accompaniment_name)
-
-@app.route('/')
+@app.route("/")
 def home():
-    return "Audio Separation API is live!"
+    return render_template("index.html")
 
-@app.route('/separate', methods=['POST'])
+@app.route("/separate", methods=["POST"])
 def separate():
-    if 'file' not in request.files:
-        return jsonify({"message": "No file uploaded"}), 400
+    if "audio" not in request.files:
+        return jsonify({"error": "No audio file uploaded"}), 400
 
-    file = request.files['file']
+    file = request.files["audio"]
     filename = secure_filename(file.filename)
-    file_bytes = file.read()
+    uid = str(uuid.uuid4())
+    input_path = os.path.join(UPLOAD_FOLDER, f"{uid}_{filename}")
+    file.save(input_path)
 
-    (vocals_io, vocals_name), (acc_io, acc_name) = separate_audio(file_bytes, filename)
-
-    # Return URLs that frontend can use to fetch in-memory files
-    # Flask cannot serve in-memory files directly in JSON, so we create routes dynamically
-    # Here we store in-memory objects temporarily
-    request.environ['vocals_io'] = vocals_io
-    request.environ['acc_io'] = acc_io
+    # Separate audio
+    vocals_path, accompaniment_path = separate_audio(input_path, uid, UPLOAD_FOLDER)
 
     return jsonify({
         "message": "Separation complete ✅",
-        "vocals_name": vocals_name,
-        "accompaniment_name": acc_name
+        "vocals": f"/download/{os.path.basename(vocals_path)}",
+        "accompaniment": f"/download/{os.path.basename(accompaniment_path)}"
     })
 
-@app.route('/download/<file_type>/<file_name>')
-def download(file_type, file_name):
-    # Get the file from request context if available
-    if file_type == 'vocals':
-        file_io = request.environ.get('vocals_io')
-    elif file_type == 'accompaniment':
-        file_io = request.environ.get('acc_io')
-    else:
+@app.route("/download/<filename>")
+def download_file(filename):
+    file_path = os.path.join(UPLOAD_FOLDER, filename)
+    if not os.path.exists(file_path):
         return "File not found", 404
+    return send_file(file_path, mimetype="audio/wav")
 
-    if not file_io:
-        return "File expired or not found", 404
-
-    file_io.seek(0)
-    return send_file(file_io, download_name=file_name, as_attachment=True)
-
-if __name__ == '__main__':
-    app.run(debug=True)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
