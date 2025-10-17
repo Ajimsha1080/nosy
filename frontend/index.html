@@ -5,14 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🎵 Audio Separation API</title>
 <style>
-body { font-family: "Segoe UI", Arial, sans-serif; text-align: center; padding: 40px; background: #f7f8fa; }
-button { padding: 12px 24px; font-size: 16px; cursor: pointer; background: #0078ff; color: white; border: none; border-radius: 8px; }
-button:hover { background: #005fcc; }
+body { font-family: Arial, sans-serif; margin: 40px; text-align: center; }
+button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
 audio { display: block; margin: 10px auto; width: 80%; max-width: 400px; }
-.card { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); max-width: 500px; margin: 20px auto; }
-a { color: #0078ff; display: block; margin-bottom: 30px; text-decoration: none; }
-a:hover { text-decoration: underline; }
-#status { font-weight: bold; margin-top: 20px; }
 </style>
 </head>
 <body>
@@ -20,10 +15,8 @@ a:hover { text-decoration: underline; }
 <h1>🎵 Audio Separation API</h1>
 <p>Upload your song to extract vocals and background music.</p>
 
-<div class="card">
-    <input type="file" id="fileInput" accept="audio/*"><br><br>
-    <button onclick="uploadFile()">Upload & Separate</button>
-</div>
+<input type="file" id="fileInput" accept="audio/*">
+<button onclick="uploadFile()">Upload & Separate</button>
 
 <div id="status"></div>
 <div id="result"></div>
@@ -31,48 +24,52 @@ a:hover { text-decoration: underline; }
 <script>
 async function uploadFile() {
     const fileInput = document.getElementById("fileInput");
-    if (!fileInput.files.length) {
-        alert("Please select an audio file first.");
-        return;
-    }
+    if (!fileInput.files.length) { alert("Select a file first!"); return; }
 
     const file = fileInput.files[0];
     const formData = new FormData();
     formData.append("file", file);
 
-    document.getElementById("status").innerText = "⏳ Uploading and processing, please wait...";
+    document.getElementById("status").innerText = "Processing...";
     document.getElementById("result").innerHTML = "";
 
     try {
-        const backendURL = window.location.origin;
+        const res = await fetch("/separate", { method: "POST", body: formData });
+        const data = await res.json();
 
-        const res = await fetch(`${backendURL}/separate`, {
-            method: "POST",
-            body: formData
-        });
+        if (!res.ok || data.error) throw new Error(data.error || "Server error");
 
-        const text = await res.text();
-        let data;
-        try { data = JSON.parse(text); } 
-        catch (e) { throw new Error("Invalid response from server."); }
+        document.getElementById("status").innerText = data.message || "Separation complete!";
 
-        if (!res.ok) throw new Error(data.error || "Server error");
+        const resultDiv = document.getElementById("result");
 
-        document.getElementById("status").innerText = data.message || "✅ Separation complete!";
+        // Create audio elements from Base64
+        const vocalsSrc = "data:audio/wav;base64," + data.vocals;
+        const accSrc = "data:audio/wav;base64," + data.accompaniment;
 
-        document.getElementById("result").innerHTML = `
+        resultDiv.innerHTML = `
             <h3>🎤 Vocals</h3>
-            <audio controls src="${backendURL}/download/${data.vocals}"></audio>
-            <a href="${backendURL}/download/${data.vocals}" download>⬇️ Download Vocals</a>
+            <audio controls src="${vocalsSrc}"></audio>
+            <button onclick="downloadAudio('${vocalsSrc}', 'vocals.wav')">⬇️ Download Vocals</button>
 
             <h3>🎶 Accompaniment</h3>
-            <audio controls src="${backendURL}/download/${data.accompaniment}"></audio>
-            <a href="${backendURL}/download/${data.accompaniment}" download>⬇️ Download Background</a>
+            <audio controls src="${accSrc}"></audio>
+            <button onclick="downloadAudio('${accSrc}', 'accompaniment.wav')">⬇️ Download Background</button>
         `;
     } catch (err) {
         console.error(err);
-        document.getElementById("status").innerText = `❌ Error: ${err.message}`;
+        document.getElementById("status").innerText = "❌ Error: " + err.message;
     }
+}
+
+// Download from Base64
+function downloadAudio(base64, filename) {
+    const link = document.createElement("a");
+    link.href = base64;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }
 </script>
 
