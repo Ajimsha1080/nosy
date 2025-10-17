@@ -5,87 +5,90 @@
   <title>🎵 Audio Separation API</title>
   <style>
     body {
-      font-family: Arial;
-      text-align: center;
-      padding: 40px;
-      background: #101820;
-      color: white;
+      font-family: Arial, sans-serif;
+      background: #f8f9fa;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
     }
     .card {
-      background: #1E2A38;
+      background: #fff;
+      border-radius: 15px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
       padding: 20px;
-      border-radius: 12px;
+      text-align: center;
       width: 400px;
-      margin: auto;
-      box-shadow: 0 0 10px rgba(0,0,0,0.5);
     }
-    audio { width: 100%; margin-top: 10px; }
+    audio {
+      width: 100%;
+      margin-top: 10px;
+    }
     button {
-      background: #00ADB5;
+      background: #007bff;
       color: white;
       border: none;
       padding: 10px 20px;
+      border-radius: 8px;
       cursor: pointer;
-      border-radius: 6px;
     }
-    button:hover { background: #02C39A; }
+    button:hover {
+      background: #0056b3;
+    }
   </style>
 </head>
 <body>
   <div class="card">
     <h2>🎵 Audio Separation API</h2>
     <p>Upload your song to extract vocals and background music.</p>
-    <input type="file" id="fileInput"><br><br>
-    <button id="uploadBtn">Upload & Separate</button>
-
-    <div id="status"></div>
-    <div id="output"></div>
+    <input type="file" id="audioFile" accept="audio/*">
+    <br><br>
+    <button onclick="uploadAudio()">Upload & Separate</button>
+    <p id="status"></p>
+    <div id="result"></div>
   </div>
 
   <script>
-    const uploadBtn = document.getElementById('uploadBtn');
-    const fileInput = document.getElementById('fileInput');
-    const status = document.getElementById('status');
-    const output = document.getElementById('output');
+    const backendURL = "https://your-backend-url.onrender.com"; // ⬅️ replace with your Render URL
 
-    uploadBtn.onclick = async () => {
+    async function uploadAudio() {
+      const fileInput = document.getElementById("audioFile");
       const file = fileInput.files[0];
       if (!file) {
-        status.innerHTML = "Please choose a file first.";
+        alert("Please select an audio file first!");
         return;
       }
-
-      status.innerHTML = "Processing... please wait ⏳";
-      output.innerHTML = "";
 
       const formData = new FormData();
       formData.append("file", file);
 
+      document.getElementById("status").innerText = "Processing audio... please wait.";
+
       try {
-        
-        const res = await fetch(`${backendURL}/separate`, { method: "POST", body: formData });
+        const res = await fetch(`${backendURL}/separate`, {
+          method: "POST",
+          body: formData
+        });
+
+        if (!res.ok) throw new Error("Backend error");
+
         const data = await res.json();
+        document.getElementById("status").innerText = "✅ Separation complete!";
 
-
-        if (data.error) {
-          status.innerHTML = "❌ Error: " + data.error;
-          return;
-        }
-
-        status.innerHTML = "✅ Separation complete!";
-        output.innerHTML = `
-          <h3>🎤 Vocals</h3>
-          <audio controls src="${data.vocal}"></audio>
-          <a href="${data.vocal}" download>Download Vocals</a>
-          <h3>🎶 Background</h3>
-          <audio controls src="${data.music}"></audio>
-          <a href="${data.music}" download>Download Background</a>
+        document.getElementById("result").innerHTML = `
+          <h3>Vocals</h3>
+          <audio controls src="${backendURL}/${data.vocals}"></audio>
+          <a href="${backendURL}/${data.vocals}" download>Download Vocals</a>
+          <h3>Instrumental</h3>
+          <audio controls src="${backendURL}/${data.instrumental}"></audio>
+          <a href="${backendURL}/${data.instrumental}" download>Download Instrumental</a>
         `;
-      } catch (e) {
-        console.error(e);
-        status.innerHTML = "❌ Error: Failed to connect to backend.";
+      } catch (err) {
+        document.getElementById("status").innerText = "❌ Error: Failed to connect to backend.";
       }
-    };
+    }
   </script>
 </body>
 </html>
