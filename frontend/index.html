@@ -8,6 +8,8 @@
 body { font-family: Arial, sans-serif; margin: 40px; text-align: center; }
 button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
 audio { display: block; margin: 10px auto; width: 80%; max-width: 400px; }
+progress { width: 80%; max-width: 400px; margin-top: 10px; }
+#status { margin-top: 10px; font-weight: bold; }
 </style>
 </head>
 <body>
@@ -15,10 +17,11 @@ audio { display: block; margin: 10px auto; width: 80%; max-width: 400px; }
 <h1>🎵 Audio Separation API</h1>
 <p>Upload your song to extract vocals and background music.</p>
 
-<input type="file" id="fileInput" accept="audio/*">
+<input type="file" id="fileInput" accept="audio/*"><br><br>
 <button onclick="uploadFile()">Upload & Separate</button>
 
 <div id="status"></div>
+<progress id="progress" value="0" max="100" style="display:none;"></progress>
 <div id="result"></div>
 
 <script>
@@ -30,39 +33,64 @@ async function uploadFile() {
     const formData = new FormData();
     formData.append("file", file);
 
-    document.getElementById("status").innerText = "Processing...";
-    document.getElementById("result").innerHTML = "";
+    const status = document.getElementById("status");
+    const progress = document.getElementById("progress");
+    const resultDiv = document.getElementById("result");
+
+    status.innerText = "Uploading...";
+    progress.style.display = "block";
+    progress.value = 0;
+    resultDiv.innerHTML = "";
 
     try {
-        const res = await fetch("/separate", { method: "POST", body: formData });
-        const data = await res.json();
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", "/separate", true);
 
-        if (!res.ok || data.error) throw new Error(data.error || "Server error");
+        // Upload progress
+        xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+                progress.value = (event.loaded / event.total) * 100;
+                status.innerText = `Uploading... ${Math.round(progress.value)}%`;
+            }
+        };
 
-        document.getElementById("status").innerText = data.message || "Separation complete!";
+        xhr.onload = () => {
+            progress.value = 100;
+            status.innerText = "Processing... This may take a few seconds ⏳";
 
-        const resultDiv = document.getElementById("result");
+            let data;
+            try { data = JSON.parse(xhr.responseText); }
+            catch (e) { status.innerText = "❌ Server returned invalid response"; return; }
 
-        // Create audio elements from Base64
-        const vocalsSrc = "data:audio/wav;base64," + data.vocals;
-        const accSrc = "data:audio/wav;base64," + data.accompaniment;
+            if (xhr.status !== 200 || data.error) {
+                status.innerText = "❌ Error: " + (data.error || "Server error");
+                return;
+            }
 
-        resultDiv.innerHTML = `
-            <h3>🎤 Vocals</h3>
-            <audio controls src="${vocalsSrc}"></audio>
-            <button onclick="downloadAudio('${vocalsSrc}', 'vocals.wav')">⬇️ Download Vocals</button>
+            status.innerText = data.message || "✅ Separation complete!";
+            const vocalsSrc = "data:audio/wav;base64," + data.vocals;
+            const accSrc = "data:audio/wav;base64," + data.accompaniment;
 
-            <h3>🎶 Accompaniment</h3>
-            <audio controls src="${accSrc}"></audio>
-            <button onclick="downloadAudio('${accSrc}', 'accompaniment.wav')">⬇️ Download Background</button>
-        `;
+            resultDiv.innerHTML = `
+                <h3>🎤 Vocals</h3>
+                <audio controls src="${vocalsSrc}"></audio>
+                <button onclick="downloadAudio('${vocalsSrc}', 'vocals.wav')">⬇️ Download Vocals</button>
+
+                <h3>🎶 Accompaniment</h3>
+                <audio controls src="${accSrc}"></audio>
+                <button onclick="downloadAudio('${accSrc}', 'accompaniment.wav')">⬇️ Download Background</button>
+            `;
+        };
+
+        xhr.onerror = () => { status.innerText = "❌ Upload failed. Check your connection."; };
+        xhr.send(formData);
+
     } catch (err) {
         console.error(err);
-        document.getElementById("status").innerText = "❌ Error: " + err.message;
+        status.innerText = "❌ Error: " + err.message;
     }
 }
 
-// Download from Base64
 function downloadAudio(base64, filename) {
     const link = document.createElement("a");
     link.href = base64;
