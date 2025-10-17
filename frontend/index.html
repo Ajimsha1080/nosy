@@ -1,39 +1,88 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
+  <meta charset="UTF-8">
   <title>🎵 Audio Separation API</title>
+  <style>
+    body {
+      font-family: Arial;
+      text-align: center;
+      padding: 40px;
+      background: #101820;
+      color: white;
+    }
+    .card {
+      background: #1E2A38;
+      padding: 20px;
+      border-radius: 12px;
+      width: 400px;
+      margin: auto;
+      box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    }
+    audio { width: 100%; margin-top: 10px; }
+    button {
+      background: #00ADB5;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      cursor: pointer;
+      border-radius: 6px;
+    }
+    button:hover { background: #02C39A; }
+  </style>
 </head>
 <body>
-  <h2>🎵 Audio Separation API</h2>
-  <input type="file" id="audioFile" accept="audio/*">
-  <button id="uploadBtn">Upload & Separate</button>
+  <div class="card">
+    <h2>🎵 Audio Separation API</h2>
+    <p>Upload your song to extract vocals and background music.</p>
+    <input type="file" id="fileInput"><br><br>
+    <button id="uploadBtn">Upload & Separate</button>
 
-  <div id="result"></div>
+    <div id="status"></div>
+    <div id="output"></div>
+  </div>
 
   <script>
-    document.getElementById("uploadBtn").onclick = async () => {
-      const fileInput = document.getElementById("audioFile");
+    const uploadBtn = document.getElementById('uploadBtn');
+    const fileInput = document.getElementById('fileInput');
+    const status = document.getElementById('status');
+    const output = document.getElementById('output');
+
+    uploadBtn.onclick = async () => {
       const file = fileInput.files[0];
-      if (!file) return alert("Please choose a file");
+      if (!file) {
+        status.innerHTML = "Please choose a file first.";
+        return;
+      }
+
+      status.innerHTML = "Processing... please wait ⏳";
+      output.innerHTML = "";
 
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await fetch("/separate", { method: "POST", body: formData });
-      const data = await response.json();
+      try {
+        const res = await fetch("/separate", { method: "POST", body: formData });
+        const data = await res.json();
 
-      if (data.error) return alert(data.error);
+        if (data.error) {
+          status.innerHTML = "❌ Error: " + data.error;
+          return;
+        }
 
-      document.getElementById("result").innerHTML = `
-        <p>${data.message}</p>
-        <h3>Vocals:</h3>
-        <audio controls src="${data.vocals}"></audio>
-        <a href="${data.vocals}" download>Download Vocals</a>
-        <h3>Background:</h3>
-        <audio controls src="${data.accompaniment}"></audio>
-        <a href="${data.accompaniment}" download>Download Background</a>
-      `;
+        status.innerHTML = "✅ Separation complete!";
+        output.innerHTML = `
+          <h3>🎤 Vocals</h3>
+          <audio controls src="${data.vocal}"></audio>
+          <a href="${data.vocal}" download>Download Vocals</a>
+          <h3>🎶 Background</h3>
+          <audio controls src="${data.music}"></audio>
+          <a href="${data.music}" download>Download Background</a>
+        `;
+      } catch (e) {
+        console.error(e);
+        status.innerHTML = "❌ Error: Failed to connect to backend.";
+      }
     };
   </script>
 </body>
