@@ -1,7 +1,9 @@
 services:
   - type: web
-    name: nosy-backend
+    name: audio-separation-api
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn cleaner.backend.app:app 
-    workingDirectory: ./backend
+    startCommand: gunicorn "cleaner.backend.app:app"
+    envVars:
+      - key: PORT
+        value: 10000
