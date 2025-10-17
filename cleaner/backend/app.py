@@ -1,23 +1,21 @@
 import os
 import uuid
-from flask import Flask, request, jsonify, send_file, send_from_directory
-from flask_cors import CORS
+import base64
+from flask import Flask, request, jsonify
 from spleeter.separator import Separator
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-CORS(app)  # allow frontend to make requests
 
-# Folder to store uploaded and separated audio
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Initialize Spleeter 2-stems separator (vocals + accompaniment)
+# Initialize Spleeter 2-stems separator
 separator = Separator('spleeter:2stems')
 
 @app.route("/", methods=["GET"])
 def home():
-    return send_from_directory("../frontend", "index.html")  # serve frontend
+    return "🎵 Audio Separation API is Live!"
 
 @app.route("/separate", methods=["POST"])
 def separate():
@@ -33,33 +31,33 @@ def separate():
     input_path = os.path.join(UPLOAD_FOLDER, f"{uid}_{filename}")
     file.save(input_path)
 
-    # Folder for output
     output_folder = os.path.join(UPLOAD_FOLDER, f"{uid}_output")
     os.makedirs(output_folder, exist_ok=True)
 
     try:
         separator.separate_to_file(input_path, output_folder)
     except Exception as e:
-        return jsonify({"error": f"Failed to process file: {str(e)}"}), 500
+        return jsonify({"error": f"Separation failed: {str(e)}"}), 500
 
-    # Construct paths for frontend download
-    vocals_path = os.path.join(f"{uid}_output", filename.replace(".mp3", ""), "vocals.wav")
-    accompaniment_path = os.path.join(f"{uid}_output", filename.replace(".mp3", ""), "accompaniment.wav")
+    vocals_path = os.path.join(output_folder, filename.replace(".mp3", ""), "vocals.wav")
+    accompaniment_path = os.path.join(output_folder, filename.replace(".mp3", ""), "accompaniment.wav")
+
+    # Convert audio files to Base64 for frontend playback
+    def to_base64(file_path):
+        with open(file_path, "rb") as f:
+            return base64.b64encode(f.read()).decode("utf-8")
+
+    try:
+        vocals_b64 = to_base64(vocals_path)
+        accompaniment_b64 = to_base64(accompaniment_path)
+    except Exception as e:
+        return jsonify({"error": f"Failed to read output files: {str(e)}"}), 500
 
     return jsonify({
-        "message": "✅ Separation complete!",
-        "vocals": vocals_path,
-        "accompaniment": accompaniment_path
+        "message": "Separation complete ✅",
+        "vocals": vocals_b64,
+        "accompaniment": accompaniment_b64
     })
-
-@app.route("/download/<path:filename>", methods=["GET"])
-def download_file(filename):
-    # Serve file from uploads folder
-    file_path = os.path.join(UPLOAD_FOLDER, filename)
-    if os.path.exists(file_path):
-        return send_file(file_path, as_attachment=True)
-    else:
-        return jsonify({"error": "File not found"}), 404
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
