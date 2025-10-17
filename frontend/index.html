@@ -62,7 +62,7 @@
       formData.append("file", file);
 
       try {
-        const backendURL = window.location.origin || "https://nosy-nky9.onrender.com";
+        
         const res = await fetch(`${backendURL}/separate`, { method: "POST", body: formData });
         const data = await res.json();
 
