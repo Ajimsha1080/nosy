@@ -1,1 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>🎵 Audio Separation API</title>
+  <style>
+    body { font-family: sans-serif; background: #fafafa; text-align: center; padding: 50px; }
+    audio { width: 80%; margin: 10px; }
+    button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
+    button:hover { background: #0056b3; }
+  </style>
+</head>
+<body>
+  <h1>🎵 Audio Separation API</h1>
+  <p>Upload your song to extract vocals and background music.</p>
+  <input type="file" id="audioFile" accept="audio/*"><br><br>
+  <button onclick="uploadAudio()">Upload & Separate</button>
+  <p id="status"></p>
+  <div id="result"></div>
+
+  <script>
+    async function uploadAudio() {
+      const fileInput = document.getElementById("audioFile");
+      const file = fileInput.files[0];
+      if (!file) return alert("Please choose a file first.");
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      document.getElementById("status").innerText = "Processing...";
+
+      try {
+        const res = await fetch("/separate", { method: "POST", body: formData });
+        const data = await res.json();
+
+        document.getElementById("status").innerText = "✅ Separation complete!";
+        document.getElementById("result").innerHTML = `
+          <h3>Vocals</h3>
+          <audio controls src="/static/${data.vocals}"></audio><br>
+          <a href="/static/${data.vocals}" download>Download Vocals</a>
+          <h3>Instrumental</h3>
+          <audio controls src="/static/${data.instrumental}"></audio><br>
+          <a href="/static/${data.instrumental}" download>Download Instrumental</a>
+        `;
+      } catch (err) {
+        document.getElementById("status").innerText = "❌ Error during separation.";
+      }
+    }
+  </script>
+</body>
+</html>
 
