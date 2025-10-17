@@ -3,6 +3,7 @@ from flask_cors import CORS
 import os
 from spleeter.separator import Separator
 from werkzeug.utils import secure_filename
+import traceback
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
 CORS(app)
@@ -12,7 +13,8 @@ OUTPUT_FOLDER = "static/separated"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
-separator = Separator('spleeter:2stems')
+# CPU-friendly model
+separator = Separator('spleeter:2stems', stft_backend='auto')
 
 @app.route('/')
 def home():
@@ -20,29 +22,36 @@ def home():
 
 @app.route('/separate', methods=['POST'])
 def separate_audio():
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file uploaded'}), 400
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file uploaded'}), 400
 
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No selected file'}), 400
 
-    filename = secure_filename(file.filename)
-    input_path = os.path.join(UPLOAD_FOLDER, filename)
-    file.save(input_path)
+        filename = secure_filename(file.filename)
+        input_path = os.path.join(UPLOAD_FOLDER, filename)
+        file.save(input_path)
 
-    output_dir = os.path.join(OUTPUT_FOLDER, os.path.splitext(filename)[0])
-    os.makedirs(output_dir, exist_ok=True)
+        output_dir = os.path.join(OUTPUT_FOLDER, os.path.splitext(filename)[0])
+        os.makedirs(output_dir, exist_ok=True)
 
-    separator.separate_to_file(input_path, output_dir)
+        # Run separation
+        separator.separate_to_file(input_path, output_dir)
 
-    vocals_path = f"separated/{os.path.splitext(filename)[0]}/vocals.wav"
-    instrumental_path = f"separated/{os.path.splitext(filename)[0]}/accompaniment.wav"
+        vocals_path = f"separated/{os.path.splitext(filename)[0]}/vocals.wav"
+        instrumental_path = f"separated/{os.path.splitext(filename)[0]}/accompaniment.wav"
 
-    return jsonify({
-        'vocals': vocals_path,
-        'instrumental': instrumental_path
-    })
+        return jsonify({
+            'vocals': vocals_path,
+            'instrumental': instrumental_path
+        })
+
+    except Exception as e:
+        print("Error during separation:", e)
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/static/<path:filename>')
 def serve_static(filename):
