@@ -16,4 +16,4 @@ werkzeug
 spleeter
 
 # ML backend (compatible with Spleeter 2.4.0)
-tensorflow
+tensorflow-cpu
