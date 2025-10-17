@@ -10,7 +10,6 @@ app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Initialize Spleeter 2-stems separator
 separator = Separator('spleeter:2stems')
 
 @app.route("/", methods=["GET"])
@@ -42,7 +41,6 @@ def separate():
     vocals_path = os.path.join(output_folder, filename.replace(".mp3", ""), "vocals.wav")
     accompaniment_path = os.path.join(output_folder, filename.replace(".mp3", ""), "accompaniment.wav")
 
-    # Convert audio files to Base64 for frontend playback
     def to_base64(file_path):
         with open(file_path, "rb") as f:
             return base64.b64encode(f.read()).decode("utf-8")
