@@ -1,15 +1,20 @@
 import os
 import uuid
-import base64
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file, send_from_directory
+from flask_cors import CORS
 from spleeter.separator import Separator
 from werkzeug.utils import secure_filename
+import logging
 
 app = Flask(__name__)
+CORS(app)
+logging.basicConfig(level=logging.INFO)
 
+# Folder to store uploaded and separated audio
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+# Initialize Spleeter 2-stems separator (vocals + accompaniment)
 separator = Separator('spleeter:2stems')
 
 @app.route("/", methods=["GET"])
@@ -25,37 +30,43 @@ def separate():
     if file.filename == "":
         return jsonify({"error": "No selected file"}), 400
 
-    filename = secure_filename(file.filename)
-    uid = str(uuid.uuid4())
-    input_path = os.path.join(UPLOAD_FOLDER, f"{uid}_{filename}")
-    file.save(input_path)
-
-    output_folder = os.path.join(UPLOAD_FOLDER, f"{uid}_output")
-    os.makedirs(output_folder, exist_ok=True)
-
     try:
+        filename = secure_filename(file.filename)
+        uid = str(uuid.uuid4())
+        input_path = os.path.join(UPLOAD_FOLDER, f"{uid}_{filename}")
+        file.save(input_path)
+        logging.info(f"Saved uploaded file: {input_path}")
+
+        # Folder for output
+        output_folder = os.path.join(UPLOAD_FOLDER, f"{uid}_output")
+        os.makedirs(output_folder, exist_ok=True)
+
+        # Perform separation
+        logging.info("Starting separation...")
         separator.separate_to_file(input_path, output_folder)
+
+        # Separated files
+        base_name = filename.rsplit(".", 1)[0]
+        vocals_path = os.path.join(output_folder, base_name, "vocals.wav")
+        accompaniment_path = os.path.join(output_folder, base_name, "accompaniment.wav")
+
+        if not os.path.exists(vocals_path) or not os.path.exists(accompaniment_path):
+            return jsonify({"error": "Separation failed"}), 500
+
+        # Return filenames (relative to uploads)
+        return jsonify({
+            "message": "✅ Separation complete!",
+            "vocals": f"{uid}_output/{base_name}/vocals.wav",
+            "accompaniment": f"{uid}_output/{base_name}/accompaniment.wav"
+        })
+
     except Exception as e:
-        return jsonify({"error": f"Separation failed: {str(e)}"}), 500
+        logging.exception("Error processing file")
+        return jsonify({"error": "Could not process file."}), 500
 
-    vocals_path = os.path.join(output_folder, filename.replace(".mp3", ""), "vocals.wav")
-    accompaniment_path = os.path.join(output_folder, filename.replace(".mp3", ""), "accompaniment.wav")
-
-    def to_base64(file_path):
-        with open(file_path, "rb") as f:
-            return base64.b64encode(f.read()).decode("utf-8")
-
-    try:
-        vocals_b64 = to_base64(vocals_path)
-        accompaniment_b64 = to_base64(accompaniment_path)
-    except Exception as e:
-        return jsonify({"error": f"Failed to read output files: {str(e)}"}), 500
-
-    return jsonify({
-        "message": "Separation complete ✅",
-        "vocals": vocals_b64,
-        "accompaniment": accompaniment_b64
-    })
+@app.route("/download/<path:filename>", methods=["GET"])
+def download_file(filename):
+    return send_from_directory(UPLOAD_FOLDER, filename, as_attachment=True)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
