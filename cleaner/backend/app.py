@@ -1,75 +1,62 @@
 import os
 import uuid
-import logging
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-from werkzeug.utils import secure_filename
 from spleeter.separator import Separator
 
 app = Flask(__name__)
-CORS(app)  # allow frontend requests
+CORS(app)
 
 UPLOAD_FOLDER = "uploads"
+SEPARATED_FOLDER = "separated"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(SEPARATED_FOLDER, exist_ok=True)
 
-# Initialize Spleeter 2-stems separator (vocals + accompaniment)
-separator = Separator('spleeter:2stems')
+separator = Separator('spleeter:2stems', multiprocess=False)
 
-logging.basicConfig(level=logging.INFO)
+@app.route("/")
+def serve_frontend():
+    return send_from_directory("../frontend", "index.html")
 
-@app.route("/", methods=["GET"])
-def home():
-    return "🎵 Audio Separation API is Live!"
+@app.route("/<path:path>")
+def serve_files(path):
+    return send_from_directory("../frontend", path)
 
 @app.route("/separate", methods=["POST"])
-def separate():
+def separate_audio():
+    if "file" not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+    
+    file = request.files["file"]
+    ext = file.filename.rsplit('.', 1)[-1]
+    unique_name = f"{uuid.uuid4()}.{ext}"
+    file_path = os.path.join(UPLOAD_FOLDER, unique_name)
+    file.save(file_path)
+
     try:
-        if "file" not in request.files:
-            return jsonify({"error": "No file part"}), 400
+        # Spleeter output path
+        output_dir = os.path.join(SEPARATED_FOLDER, str(uuid.uuid4()))
+        os.makedirs(output_dir, exist_ok=True)
 
-        file = request.files["file"]
-        if file.filename == "":
-            return jsonify({"error": "No selected file"}), 400
+        separator.separate_to_file(file_path, output_dir)
 
-        filename = secure_filename(file.filename)
-        uid = str(uuid.uuid4())
-        input_path = os.path.join(UPLOAD_FOLDER, f"{uid}_{filename}")
-        file.save(input_path)
-        logging.info(f"Saved uploaded file: {input_path}")
-
-        # Output folder
-        output_folder = os.path.join(UPLOAD_FOLDER, f"{uid}_output")
-        os.makedirs(output_folder, exist_ok=True)
-
-        logging.info("Starting separation...")
-        separator.separate_to_file(input_path, output_folder)
-        logging.info("Separation complete!")
-
-        # Construct relative paths for frontend
-        base_name = filename.rsplit(".", 1)[0]
-        vocals_path = os.path.join(f"{uid}_output", base_name, "vocals.wav")
-        accompaniment_path = os.path.join(f"{uid}_output", base_name, "accompaniment.wav")
+        # Spleeter creates /vocals.wav and /accompaniment.wav
+        vocals_file = os.path.join(output_dir, "vocals.wav")
+        acc_file = os.path.join(output_dir, "accompaniment.wav")
 
         return jsonify({
-            "message": "Separation complete ✅",
-            "vocals": vocals_path,
-            "accompaniment": accompaniment_path
+            "message": "Separation complete!",
+            "vocals": os.path.relpath(vocals_file),
+            "accompaniment": os.path.relpath(acc_file)
         })
-
     except Exception as e:
-        logging.exception("Separation failed")
-        return jsonify({"error": "Could not process file.", "details": str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
-
-@app.route("/download/<path:filepath>", methods=["GET"])
-def download_file(filepath):
-    full_path = os.path.join(UPLOAD_FOLDER, filepath)
-    if os.path.exists(full_path):
-        return send_file(full_path, as_attachment=True)
-    else:
-        return jsonify({"error": "File not found"}), 404
-
+@app.route("/download/<path:filename>")
+def download_file(filename):
+    directory = os.path.dirname(filename)
+    filename_only = os.path.basename(filename)
+    return send_from_directory(directory, filename_only, as_attachment=True)
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
