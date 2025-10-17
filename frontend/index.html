@@ -87,15 +87,18 @@ async function uploadFile() {
     document.getElementById("result").innerHTML = "";
 
     try {
-        // Automatically detect backend (Render or local)
-        const backendURL = window.location.origin;
+        // ✅ Fixed backend URL — points to your Render backend
+        const backendURL = window.location.hostname.includes("localhost")
+            ? "http://127.0.0.1:10000"  // for local testing
+            : "https://nosy-nky9.onrender.com"; // Render live backend
 
         const res = await fetch(`${backendURL}/separate`, {
             method: "POST",
             body: formData
         });
 
-        const text = await res.text(); // fetch raw text first
+        // Get raw text first, then safely parse JSON
+        const text = await res.text();
         let data;
         try {
             data = JSON.parse(text);
@@ -107,6 +110,7 @@ async function uploadFile() {
             throw new Error(data.error || "Server error");
         }
 
+        // ✅ Success
         document.getElementById("status").innerText = data.message || "✅ Separation complete!";
 
         const resultDiv = document.getElementById("result");
@@ -115,7 +119,7 @@ async function uploadFile() {
             <audio controls src="${backendURL}/download/${data.vocals}"></audio>
             <a href="${backendURL}/download/${data.vocals}" download>⬇️ Download Vocals</a>
 
-            <h3>🎶 Accompaniment</h3>
+            <h3>🎶 Background</h3>
             <audio controls src="${backendURL}/download/${data.accompaniment}"></audio>
             <a href="${backendURL}/download/${data.accompaniment}" download>⬇️ Download Background</a>
         `;
@@ -128,4 +132,3 @@ async function uploadFile() {
 
 </body>
 </html>
-
