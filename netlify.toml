@@ -1,4 +1,4 @@
 [build]
-  base = "frontend"
-  publish = "dist"
-  command = "npm run build"
+  base = "frontend"       # folder where index.html exists
+  publish = "dist"        # Vite outputs here
+  command = "npm install && npm run build"
