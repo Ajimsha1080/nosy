@@ -117,5 +117,5 @@ def separate_audio():
 # Main block for local testing
 # ------------------------------
 if __name__ == '__main__':
-    # Debug=True only for local development; ignored in production
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
