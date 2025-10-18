@@ -1,36 +1,53 @@
-from flask import Flask, request, jsonify
-from spleeter.separator import Separator
+from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
 import os
 
-app = Flask(__name__)
-UPLOAD_FOLDER = "uploads"
-OUTPUT_FOLDER = "separated"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+app = Flask(__name__, static_folder='../frontend')
+CORS(app)
 
+# Root route serves frontend
+@app.route("/")
+def home():
+    return send_from_directory(app.static_folder, 'index.html')
+
+# Serve static files (like JS, CSS) if needed
+@app.route("/<path:path>")
+def static_files(path):
+    return send_from_directory(app.static_folder, path)
+
+# Audio separation endpoint
 @app.route("/separate", methods=["POST"])
 def separate_audio():
-    if "file" not in request.files:
+    if 'file' not in request.files:
         return jsonify({"error": "No file uploaded"}), 400
 
-    file = request.files["file"]
-    filepath = os.path.join(UPLOAD_FOLDER, file.filename)
-    file.save(filepath)
+    file = request.files['file']
+    filename = file.filename
+    save_path = os.path.join("uploads", filename)
 
-    try:
-        separator = Separator("spleeter:2stems")
-        separator.separate_to_file(filepath, OUTPUT_FOLDER)
+    os.makedirs("uploads", exist_ok=True)
+    file.save(save_path)
 
-        vocals_file = os.path.join(OUTPUT_FOLDER, file.filename.replace(".mp3", "/vocals.wav"))
-        music_file = os.path.join(OUTPUT_FOLDER, file.filename.replace(".mp3", "/accompaniment.wav"))
+    # --- AUDIO SEPARATION LOGIC ---
+    # Replace the following with your actual separation function
+    vocals_url = f"/uploads/vocals_{filename}"
+    background_url = f"/uploads/background_{filename}"
 
-        return jsonify({
-            "vocals": vocals_file,
-            "accompaniment": music_file,
-            "message": "Separation complete!"
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    # For testing: just copy the original file as both vocals & background
+    import shutil
+    shutil.copy(save_path, f".{vocals_url}")
+    shutil.copy(save_path, f".{background_url}")
+
+    return jsonify({
+        "vocals_url": vocals_url,
+        "background_url": background_url
+    })
+
+# Serve uploaded files
+@app.route("/uploads/<path:filename>")
+def uploaded_files(filename):
+    return send_from_directory("uploads", filename)
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
