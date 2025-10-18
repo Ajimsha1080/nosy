@@ -1,2 +1,2 @@
-web: gunicorn cleaner.backend.app:app
+web: gunicorn --timeout 600 backend.app:app
 
