@@ -62,7 +62,7 @@ def separate_audio():
             'spleeter', 'separate',
             '-p', 'spleeter:2stems',
             '-o', output_dir,
-            temp_input_path
+            '-i', temp_input_path
         ]
 
         process = subprocess.run(command, capture_output=True, text=True)
@@ -115,6 +115,7 @@ def separate_audio():
 
 # ------------------------------
 # Main block for local testing
+# UPDATED: For Render deployment
 # ------------------------------
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
