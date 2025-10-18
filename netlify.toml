@@ -1,5 +1,4 @@
 [build]
   base = "frontend"
   publish = "frontend"
-  command = "echo 'No build needed'"
-  
+  command = "ls"
