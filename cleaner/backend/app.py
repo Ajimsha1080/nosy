@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from cleaner.separate_audio import separate_audio  # Your audio separation function
+from separate_audio import separate_audio  # Your audio separation function
 
 app = Flask(__name__)
 
