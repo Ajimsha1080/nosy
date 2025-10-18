@@ -4,15 +4,15 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>🎵 Audio Separation</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-  <h2>Upload Audio to Separate Vocals & Music</h2>
-  <input type="file" id="audioFile" accept="audio/*" />
-  <button onclick="uploadAudio()">Upload & Separate</button>
-  <div id="result"></div>
+<body class="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-6">
+  <h2 class="text-2xl font-semibold mb-4 text-blue-600">Upload Audio to Separate Vocals & Music</h2>
+  <input type="file" id="audioFile" accept="audio/*" class="mb-4 border border-gray-400 p-2 rounded" />
+  <button onclick="uploadAudio()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">Upload & Separate</button>
+  <div id="result" class="mt-6 text-center"></div>
 
   <script>
-    // Replace this with your actual Render backend URL
     const BACKEND_URL = "https://nosy-nky9.onrender.com";
 
     async function uploadAudio() {
@@ -34,11 +34,11 @@
 
         const data = await response.json();
         document.getElementById("result").innerHTML = `
-          <h3>✅ Separated Tracks</h3>
-          <audio controls src="${data.vocals_url}"></audio>
-          <p><a href="${data.vocals_url}" download>Download Vocals</a></p>
-          <audio controls src="${data.background_url}"></audio>
-          <p><a href="${data.background_url}" download>Download Instrumental</a></p>
+          <h3 class="text-green-600 text-lg font-semibold">✅ Separated Tracks</h3>
+          <audio controls src="${data.vocals_url}" class="mt-3"></audio>
+          <p><a href="${data.vocals_url}" download class="text-blue-600 underline">Download Vocals</a></p>
+          <audio controls src="${data.background_url}" class="mt-3"></audio>
+          <p><a href="${data.background_url}" download class="text-blue-600 underline">Download Instrumental</a></p>
         `;
       } catch (err) {
         document.getElementById("result").innerText = "❌ Error during separation.";
