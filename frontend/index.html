@@ -1,1 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Separator - Vocals & Accompaniment</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .upload-area {
+            border: 2px dashed #667eea;
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+            background: #f8f9ff;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f0f2ff;
+        }
+
+        .upload-area.dragover {
+            border-color: #764ba2;
+            background: #e8ebff;
+        }
+
+        .upload-icon {
+            font-size: 40px;
+            margin-bottom: 10px;
+        }
+
+        .upload-text {
+            color: #667eea;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .upload-hint {
+            color: #999;
+            font-size: 12px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-name {
+            color: #333;
+            font-size: 14px;
+            margin-top: 10px;
+            font-weight: 500;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 15px;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .loader {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .results {
+            display: none;
+            margin-top: 30px;
+        }
+
+        .result-item {
+            margin-bottom: 20px;
+        }
+
+        .result-label {
+            color: #667eea;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        audio {
+            width: 100%;
+            margin-bottom: 8px;
+            border-radius: 5px;
+        }
+
+        .download-btn {
+            background: #27ae60;
+            padding: 8px 15px;
+            font-size: 14px;
+            margin-bottom: 0;
+        }
+
+        .download-btn:hover {
+            background: #229954;
+        }
+
+        .error {
+            background: #ffe6e6;
+            color: #d32f2f;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: none;
+            font-size: 14px;
+        }
+
+        .success {
+            background: #e6ffe6;
+            color: #2e7d32;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: none;
+            font-size: 14px;
+        }
+
+        .api-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 13px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 Audio Separator</h1>
+        <p class="subtitle">Extract vocals and accompaniment from your audio</p>
+
+        <div class="error" id="errorMsg"></div>
+        <div class="success" id="successMsg"></div>
+
+        <div style="margin-bottom: 20px;">
+            <label style="font-size: 12px; color: #666; display: block; margin-bottom: 5px;">Backend API URL:</label>
+            <input type="text" id="apiUrl" class="api-input" placeholder="http://localhost:5000" value="http://localhost:5000">
+        </div>
+
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📁</div>
+            <div class="upload-text">Click to upload or drag & drop</div>
+            <div class="upload-hint">MP3, WAV, FLAC (Max 50MB)</div>
+            <input type="file" id="audioFile" accept="audio/*">
+        </div>
+
+        <div id="fileName" class="file-name"></div>
+
+        <button id="separateBtn" disabled>Separate Audio</button>
+
+        <div class="loader" id="loader">
+            <div class="spinner"></div>
+            <p style="color: #666; margin-top: 10px; font-size: 14px;">Processing... This may take a minute</p>
+        </div>
+
+        <div class="results" id="results">
+            <div class="result-item">
+                <div class="result-label">🎤 Vocals</div>
+                <audio id="vocalsAudio" controls></audio>
+                <button class="download-btn" onclick="downloadAudio('vocals')">Download Vocals</button>
+            </div>
+
+            <div class="result-item">
+                <div class="result-label">🎸 Accompaniment</div>
+                <audio id="accompAudio" controls></audio>
+                <button class="download-btn" onclick="downloadAudio('accompaniment')">Download Accompaniment</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const audioFile = document.getElementById('audioFile');
+        const fileName = document.getElementById('fileName');
+        const separateBtn = document.getElementById('separateBtn');
+        const loader = document.getElementById('loader');
+        const results = document.getElementById('results');
+        const errorMsg = document.getElementById('errorMsg');
+        const successMsg = document.getElementById('successMsg');
+        const apiUrlInput = document.getElementById('apiUrl');
+
+        let selectedFile = null;
+
+        // Upload area click
+        uploadArea.addEventListener('click', () => audioFile.click());
+
+        // File selection
+        audioFile.addEventListener('change', (e) => {
+            selectedFile = e.target.files[0];
+            if (selectedFile) {
+                fileName.textContent = `Selected: ${selectedFile.name}`;
+                separateBtn.disabled = false;
+            }
+        });
+
+        // Drag & drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            selectedFile = e.dataTransfer.files[0];
+            if (selectedFile) {
+                audioFile.files = e.dataTransfer.files;
+                fileName.textContent = `Selected: ${selectedFile.name}`;
+                separateBtn.disabled = false;
+            }
+        });
+
+        // Separate audio
+        separateBtn.addEventListener('click', async () => {
+            if (!selectedFile) return;
+
+            const apiUrl = apiUrlInput.value.trim();
+            if (!apiUrl) {
+                showError('Please enter a backend API URL');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('audio_file', selectedFile);
+
+            loader.style.display = 'block';
+            results.style.display = 'none';
+            errorMsg.style.display = 'none';
+            successMsg.style.display = 'none';
+
+            try {
+                const response = await fetch(`${apiUrl}/separate`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Processing failed');
+                }
+
+                const data = await response.json();
+
+                // Convert base64 to blob
+                const vocalsBlob = base64ToBlob(data.vocals, 'audio/wav');
+                const accompBlob = base64ToBlob(data.accompaniment, 'audio/wav');
+
+                // Create URLs
+                document.getElementById('vocalsAudio').src = URL.createObjectURL(vocalsBlob);
+                document.getElementById('accompAudio').src = URL.createObjectURL(accompBlob);
+
+                // Store for download
+                window.vocalsData = vocalsBlob;
+                window.accompData = accompBlob;
+
+                loader.style.display = 'none';
+                results.style.display = 'block';
+                showSuccess('Audio separated successfully!');
+            } catch (error) {
+                loader.style.display = 'none';
+                showError(`Error: ${error.message}`);
+            }
+        });
+
+        function base64ToBlob(base64, mimeType) {
+            const binaryString = atob(base64);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return new Blob([bytes], { type: mimeType });
+        }
+
+        function downloadAudio(type) {
+            const data = type === 'vocals' ? window.vocalsData : window.accompData;
+            const url = URL.createObjectURL(data);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${type}_${new Date().getTime()}.wav`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function showError(msg) {
+            errorMsg.textContent = msg;
+            errorMsg.style.display = 'block';
+            setTimeout(() => errorMsg.style.display = 'none', 5000);
+        }
+
+        function showSuccess(msg) {
+            successMsg.textContent = msg;
+            successMsg.style.display = 'block';
+            setTimeout(() => successMsg.style.display = 'none', 5000);
+        }
+    </script>
+</body>
+</html>
