@@ -4,22 +4,17 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>🎵 Audio Separation</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 40px; }
-    h2 { color: #333; }
-    button { padding: 10px 20px; margin-top: 10px; cursor: pointer; }
-    audio { display: block; margin-top: 10px; }
-    #result { margin-top: 20px; }
-  </style>
 </head>
 <body>
   <h2>Upload Audio to Separate Vocals & Music</h2>
   <input type="file" id="audioFile" accept="audio/*" />
   <button onclick="uploadAudio()">Upload & Separate</button>
-
   <div id="result"></div>
 
   <script>
+    // Replace this with your actual Render backend URL
+    const BACKEND_URL = "https://your-backend.onrender.com";
+
     async function uploadAudio() {
       const fileInput = document.getElementById("audioFile");
       if (!fileInput.files.length) return alert("Select an audio file first.");
@@ -30,24 +25,20 @@
       document.getElementById("result").innerText = "Processing... ⏳";
 
       try {
-        const response = await fetch("https://nosy-nky9.onrender.com/separate", {
+        const response = await fetch(`${BACKEND_URL}/separate`, {
           method: "POST",
-          body: formData,
+          body: formData
         });
 
         if (!response.ok) throw new Error("Separation failed");
 
         const data = await response.json();
-
         document.getElementById("result").innerHTML = `
           <h3>✅ Separated Tracks</h3>
-          <strong>Vocals:</strong>
-          <audio controls src="https://nosy-nky9.onrender.com${data.vocals_url}"></audio>
-          <p><a href="https://nosy-nky9.onrender.com${data.vocals_url}" download>Download Vocals</a></p>
-
-          <strong>Instrumental:</strong>
-          <audio controls src="https://nosy-nky9.onrender.com${data.background_url}"></audio>
-          <p><a href="https://nosy-nky9.onrender.com${data.background_url}" download>Download Instrumental</a></p>
+          <audio controls src="${data.vocals_url}"></audio>
+          <p><a href="${data.vocals_url}" download>Download Vocals</a></p>
+          <audio controls src="${data.background_url}"></audio>
+          <p><a href="${data.background_url}" download>Download Instrumental</a></p>
         `;
       } catch (err) {
         document.getElementById("result").innerText = "❌ Error during separation.";
