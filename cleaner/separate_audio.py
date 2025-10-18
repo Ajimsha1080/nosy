@@ -1,43 +1,32 @@
+from flask import Flask, request, jsonify, send_file
+from flask_cors import CORS
+from separate_audio import separate_audio
 import os
-import uuid
-from spleeter.separator import Separator
-from werkzeug.utils import secure_filename
 
-# Folder to store temporary audio files
-UPLOAD_FOLDER = "/tmp/audio_files"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app = Flask(__name__)
+CORS(app)  # allow cross-origin requests from Netlify frontend
 
-# Initialize Spleeter 2-stems separator (vocals + accompaniment)
-separator = Separator('spleeter:2stems')
+@app.route("/separate", methods=["POST"])
+def separate():
+    if "file" not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
 
-def separate_audio(file):
-    """
-    Separate vocals and instrumental from an uploaded audio file.
+    file = request.files["file"]
+    vocals_path, instrumental_path = separate_audio(file)
 
-    Args:
-        file: FileStorage object from Flask
+    # Return URLs for frontend to download
+    # On Render, you can use '/download/<filename>' route to serve files
+    vocals_url = f"/download/{os.path.basename(vocals_path)}"
+    instrumental_url = f"/download/{os.path.basename(instrumental_path)}"
+    return jsonify({"vocals_url": vocals_url, "background_url": instrumental_url})
 
-    Returns:
-        vocals_url, background_url: URLs or paths to separated audio files
-    """
-    # Save uploaded file
-    filename = secure_filename(file.filename)
-    unique_id = str(uuid.uuid4())
-    input_path = os.path.join(UPLOAD_FOLDER, f"{unique_id}_{filename}")
-    file.save(input_path)
+@app.route("/download/<filename>")
+def download_file(filename):
+    # Serve file from UPLOAD_FOLDER
+    for root, dirs, files in os.walk("/tmp/audio_files"):
+        if filename in files:
+            return send_file(os.path.join(root, filename))
+    return "File not found", 404
 
-    # Output folder for separated files
-    output_folder = os.path.join(UPLOAD_FOLDER, f"{unique_id}_output")
-    os.makedirs(output_folder, exist_ok=True)
-
-    # Run separation
-    separator.separate_to_file(input_path, output_folder)
-
-    # Spleeter output paths
-    base_name = os.path.splitext(filename)[0]
-    vocals_file = os.path.join(output_folder, base_name, "vocals.wav")
-    instrumental_file = os.path.join(output_folder, base_name, "accompaniment.wav")
-
-    # In Render, serve these files using /static or a cloud bucket
-    # For now, return relative paths
-    return vocals_file, instrumental_file
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
