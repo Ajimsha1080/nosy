@@ -1,5 +1,4 @@
 [build]
-  publish = "frontend"
-  command = "echo 'No build step needed'"
-
-
+  base = "frontend"
+  publish = "frontend/build"
+  command = "npm install } && npm run build"
