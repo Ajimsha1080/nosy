@@ -1,61 +1,56 @@
-from flask import Flask, request, jsonify, render_template, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import os
-from spleeter.separator import Separator
 from werkzeug.utils import secure_filename
-import traceback
+from spleeter.separator import Separator
 
-app = Flask(__name__, static_folder="static", template_folder="templates")
+app = Flask(__name__)
 CORS(app)
 
 UPLOAD_FOLDER = "uploads"
-OUTPUT_FOLDER = "static/separated"
+OUTPUT_FOLDER = "output"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
-# CPU-friendly model
-separator = Separator('spleeter:2stems', stft_backend='auto')
+# Load Spleeter model (2 stems: vocals + accompaniment)
+separator = Separator("spleeter:2stems")
 
-@app.route('/')
+@app.route("/", methods=["GET"])
 def home():
-    return render_template('index.html')
+    return "🎵 Audio Separation API is Live!"
 
-@app.route('/separate', methods=['POST'])
-def separate_audio():
+@app.route("/separate", methods=["POST"])
+def separate():
+    if "file" not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+
+    file = request.files["file"]
+    filename = secure_filename(file.filename)
+    filepath = os.path.join(UPLOAD_FOLDER, filename)
+    file.save(filepath)
+
     try:
-        if 'file' not in request.files:
-            return jsonify({'error': 'No file uploaded'}), 400
+        separator.separate_to_file(filepath, OUTPUT_FOLDER)
 
-        file = request.files['file']
-        if file.filename == '':
-            return jsonify({'error': 'No selected file'}), 400
+        base_name = os.path.splitext(filename)[0]
+        out_dir = os.path.join(OUTPUT_FOLDER, base_name)
 
-        filename = secure_filename(file.filename)
-        input_path = os.path.join(UPLOAD_FOLDER, filename)
-        file.save(input_path)
-
-        output_dir = os.path.join(OUTPUT_FOLDER, os.path.splitext(filename)[0])
-        os.makedirs(output_dir, exist_ok=True)
-
-        # Run separation
-        separator.separate_to_file(input_path, output_dir)
-
-        vocals_path = f"separated/{os.path.splitext(filename)[0]}/vocals.wav"
-        instrumental_path = f"separated/{os.path.splitext(filename)[0]}/accompaniment.wav"
+        vocals_path = f"/download/{base_name}/vocals.wav"
+        accomp_path = f"/download/{base_name}/accompaniment.wav"
 
         return jsonify({
-            'vocals': vocals_path,
-            'instrumental': instrumental_path
+            "message": "✅ Separation complete!",
+            "vocals": vocals_path,
+            "accompaniment": accomp_path
         })
 
     except Exception as e:
-        print("Error during separation:", e)
-        traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
-@app.route('/static/<path:filename>')
-def serve_static(filename):
-    return send_from_directory(app.static_folder, filename)
+@app.route("/download/<folder>/<filename>")
+def download(folder, filename):
+    return send_from_directory(os.path.join(OUTPUT_FOLDER, folder), filename)
 
-if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=5000)
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
