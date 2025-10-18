@@ -41,4 +41,3 @@ def separate_audio(file):
     # In Render, serve these files using /static or a cloud bucket
     # For now, return relative paths
     return vocals_file, instrumental_file
-
