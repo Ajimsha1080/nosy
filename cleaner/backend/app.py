@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from cleaner.separate_audio import separate_audio
+from separate_audio import separate_audio
 
 app = Flask(__name__)
 CORS(app)  # Allow frontend (Netlify) to call backend
