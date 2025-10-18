@@ -1,21 +1,34 @@
 import os
 import io
 import base64
-import subprocess
-import shutil
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from pydub import AudioSegment
+from pydub.effects import high_pass_filter, low_pass_filter
 
 # ------------------------------
 # Initialize Flask app and CORS
 # ------------------------------
 app = Flask(__name__)
-CORS(app)  # Allow all origins (frontend <-> backend)
+CORS(app)
 
-# Folder to store uploaded files temporarily
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+
+# Simple audio separation using frequency filtering
+def simple_separate_audio(audio_segment):
+    """
+    Simple vocal/accompaniment separation using frequency filtering.
+    Vocals are typically in higher frequencies, accompaniment in lower.
+    """
+    # High pass filter for vocals (frequencies above 2000 Hz)
+    vocals = high_pass_filter(audio_segment, 2000)
+    
+    # Low pass filter for accompaniment (frequencies below 4000 Hz)
+    accompaniment = low_pass_filter(audio_segment, 4000)
+    
+    return vocals, accompaniment
 
 
 # ------------------------------
@@ -24,13 +37,11 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 @app.route('/separate', methods=['POST'])
 def separate_audio():
     """
-    Separates vocals and accompaniment from an uploaded audio file using Spleeter.
-    Returns both tracks as base64-encoded WAV files.
+    Separates vocals and accompaniment from an uploaded audio file.
+    Uses simple frequency-based filtering (lightweight alternative to Spleeter).
     """
     try:
-        # ------------------------------
-        # 1. Check for uploaded file
-        # ------------------------------
+        # Check for uploaded file
         if 'audio_file' not in request.files:
             return jsonify({'error': 'No audio file provided'}), 400
 
@@ -39,70 +50,37 @@ def separate_audio():
         if audio_file.filename == "":
             return jsonify({'error': 'Empty filename'}), 400
 
-        # ------------------------------
-        # 2. Save the uploaded file safely
-        # ------------------------------
+        # Save uploaded file
         safe_filename = audio_file.filename.replace(" ", "_").replace("(", "").replace(")", "")
-        temp_dir = f"temp_spleeter_{os.getpid()}"
-        os.makedirs(temp_dir, exist_ok=True)
-        temp_input_path = os.path.join(temp_dir, safe_filename)
+        temp_input_path = os.path.join(UPLOAD_FOLDER, safe_filename)
         audio_file.save(temp_input_path)
         print("Saved input file at:", temp_input_path)
 
-        # ------------------------------
-        # 3. Define output directory
-        # ------------------------------
-        output_dir = os.path.join(temp_dir, 'output')
-        os.makedirs(output_dir, exist_ok=True)
+        # Load audio file
+        try:
+            audio = AudioSegment.from_file(temp_input_path)
+        except Exception as e:
+            return jsonify({'error': f'Could not load audio file: {str(e)}'}), 400
 
-        # ------------------------------
-        # 4. Run Spleeter
-        # ------------------------------
-        command = [
-            'spleeter', 'separate',
-            '-p', 'spleeter:2stems',
-            '-o', output_dir,
-            '-i', temp_input_path
-        ]
+        # Perform separation
+        vocals, accompaniment = simple_separate_audio(audio)
 
-        process = subprocess.run(command, capture_output=True, text=True, timeout=600)
-
-        if process.returncode != 0:
-            print("Spleeter command failed:")
-            print("Stdout:", process.stdout)
-            print("Stderr:", process.stderr)
-            return jsonify({'error': 'Spleeter processing failed', 'details': process.stderr}), 500
-
-        # ------------------------------
-        # 5. Load separated audio
-        # ------------------------------
-        output_subdir = os.path.join(output_dir, os.path.splitext(safe_filename)[0])
-        vocals_path = os.path.join(output_subdir, 'vocals.wav')
-        accompaniment_path = os.path.join(output_subdir, 'accompaniment.wav')
-
-        if not os.path.exists(vocals_path) or not os.path.exists(accompaniment_path):
-            return jsonify({'error': 'Spleeter output files not found. Check input format.'}), 500
-
-        # Convert to base64
-        vocals_audio = AudioSegment.from_wav(vocals_path)
-        accompaniment_audio = AudioSegment.from_wav(accompaniment_path)
-
+        # Convert to WAV and encode as base64
         vocals_stream = io.BytesIO()
         accompaniment_stream = io.BytesIO()
-        vocals_audio.export(vocals_stream, format="wav")
-        accompaniment_audio.export(accompaniment_stream, format="wav")
+        
+        vocals.export(vocals_stream, format="wav")
+        accompaniment.export(accompaniment_stream, format="wav")
 
         vocals_base64 = base64.b64encode(vocals_stream.getvalue()).decode('utf-8')
         accompaniment_base64 = base64.b64encode(accompaniment_stream.getvalue()).decode('utf-8')
 
-        # ------------------------------
-        # 6. Cleanup
-        # ------------------------------
-        shutil.rmtree(temp_dir)
+        # Cleanup
+        try:
+            os.remove(temp_input_path)
+        except:
+            pass
 
-        # ------------------------------
-        # 7. Return JSON response
-        # ------------------------------
         return jsonify({
             'vocals': vocals_base64,
             'accompaniment': accompaniment_base64
@@ -114,8 +92,15 @@ def separate_audio():
 
 
 # ------------------------------
-# Main block for local testing
-# UPDATED: For Render deployment
+# Health check endpoint
+# ------------------------------
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({'status': 'ok'}), 200
+
+
+# ------------------------------
+# Main block
 # ------------------------------
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
