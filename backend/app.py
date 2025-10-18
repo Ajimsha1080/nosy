@@ -65,7 +65,7 @@ def separate_audio():
             '-i', temp_input_path
         ]
 
-        process = subprocess.run(command, capture_output=True, text=True)
+        process = subprocess.run(command, capture_output=True, text=True, timeout=600)
 
         if process.returncode != 0:
             print("Spleeter command failed:")
